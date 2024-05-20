@@ -7,6 +7,19 @@ import music_featurizer
 import music_generator
 import torch
 
+
+def predict_next_note(model, sequence):
+    """
+    Predicts the next note, based on an existing model and a sequence of notes
+    :param model: The model
+    :param sequence: The tokenized sequence of notes
+    :return: The prediction as a MIDI note number
+    """
+    prediction = model(sequence, model.init_hidden())
+    str_prediction = music_featurizer.retrieve_class_name(torch.argmax(prediction)[0]).split('/')
+    return int(str_prediction[0]) / int(str_prediction[1])
+
+
 if __name__ == "__main__":
     PATH = "data\\ein_kind_ist_uns_geboren.xml"
     TRAINING_SEQUENCE_LENGTH = 5

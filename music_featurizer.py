@@ -160,6 +160,18 @@ def tokenize(dataset, batched=True):
     return entries
 
 
+def retrieve_class_name(class_id):
+    """
+    Retrives a predicted class's name based on its id
+    :param class_id: The class id
+    :return: The class name
+    """
+    for item, val in _PS_ENCODING.items():
+        if class_id == val:
+            return item
+    return "None"
+
+
 def make_sequences(tokenized_dataset, n, device="cpu"):
     """
     Makes N-gram sequences from a tokenized dataset
