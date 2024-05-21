@@ -9,52 +9,70 @@ import torch
 import math
 import xml_gen
 import numpy as np
+from fractions import Fraction
 
 _LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
 _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.5": 1, "-1.0": 2, "-0.5": 3, "0.0": 4, "0.5": 5, "1.0": 6, "1.5": 7, "2.0": 8, "None": 9}
 _PS_ENCODING = {"None": 256}
 _PITCH_CLASS_ENCODING = {"None": 24}
 _QUARTER_LENGTH_ENCODING = {"None": 0}
+_PS_REVERSE_ENCODING = {256: "None"}
+_PITCH_CLASS_REVERSE_ENCODING = {"None": 24}
+_QUARTER_LENGTH_REVERSE_ENCODING = {"None": 0}
 
 for i in range(256):
     _PS_ENCODING[str(i/2)] = i 
+    _PS_REVERSE_ENCODING[i] = str(i/2)
 
 for i in range(24):
     _PITCH_CLASS_ENCODING[str(i/2)] = i 
+    _PITCH_CLASS_REVERSE_ENCODING[i] = str(i/2)
 
 j = 1
 
 # Quarters
 for i in range(1, 8):
     _QUARTER_LENGTH_ENCODING[f"{i}"] = j
+    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}"
     j += 1
 
 # Eighths
 for i in range(1, 16, 2):
     _QUARTER_LENGTH_ENCODING[f"{i}/2"] = j
+    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/2"
     j += 1
 
 # Triplet eighths
 for i in range(1, 24):
     if i % 3 != 0:
         _QUARTER_LENGTH_ENCODING[f"{i}/3"] = j
+        _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/3"
         j += 1
 
 # Sixteenths
 for i in range(1, 32, 2):
     _QUARTER_LENGTH_ENCODING[f"{i}/4"] = j
+    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/4"
     j += 1
 
 # Triplet sixteenths
 for i in range(1, 48, 2):
     if i % 3 != 0:
         _QUARTER_LENGTH_ENCODING[f"{i}/6"] = j
+        _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/6"
         j += 1
 
 # 32nds
 for i in range(1, 64, 2):
     _QUARTER_LENGTH_ENCODING[f"{i}/8"] = j
+    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/8"
     j += 1
+
+###############################################################################################################
+# The total number of features and outputs for the model. This can change from time to time, and must be updated!
+###############################################################################################################
+_NUM_FEATURES = len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + len(_PITCH_CLASS_ENCODING) + len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_ENCODING) + 4
+_NUM_OUTPUTS = len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
 def load_data(staff, tempo_map):
@@ -145,6 +163,11 @@ def tokenize(dataset, batched=True):
         bos = torch.Tensor([int(entry["BOS"]), int(entry["EOS"])])
         ps = torch.zeros((len(_PS_ENCODING)))
         ps[_PS_ENCODING[str(entry["ps"])]] = 1
+        ql = torch.zeros((len(_QUARTER_LENGTH_ENCODING)))
+        if entry["quarterLength"] == "None":
+            ql[_QUARTER_LENGTH_ENCODING[str(entry["quarterLength"])]] = 1
+        else:
+            ql[_QUARTER_LENGTH_ENCODING[str(Fraction(entry["quarterLength"]))]] = 1
         letter = torch.zeros((len(_LETTER_NAME_ENCODING)))
         letter[_LETTER_NAME_ENCODING[entry["letter_name"]]] = 1
         accidental = torch.zeros((len(_ACCIDENTAL_ENCODING)))
@@ -155,7 +178,7 @@ def tokenize(dataset, batched=True):
             tempo = torch.zeros((2))
         else:
             tempo = torch.Tensor([entry["tempo"], entry["duration"]])
-        entries.append(torch.hstack((bos, ps, letter, accidental, pc, tempo)))
+        entries.append(torch.hstack((ps, ql, pc, letter, accidental, tempo, bos)))
 
     entries = torch.vstack(entries)
     if batched:
@@ -163,16 +186,29 @@ def tokenize(dataset, batched=True):
     return entries
 
 
-def retrieve_class_name(class_id):
+def retrieve_class_dictionary(prediction):
     """
-    Retrives a predicted class's name based on its id
-    :param class_id: The class id
-    :return: The class name
+    Retrives a predicted class's information based on its id
+    :param prediction: The prediction tuple
+    :return: The prediction dictionary
     """
-    for item, val in _PS_ENCODING.items():
-        if class_id == val:
-            return item
-    return "None"
+    ps = _PS_REVERSE_ENCODING[prediction[0]]
+    if ps != "None":
+        letter_name, pc, accidental_alter = get_letter_name(float(ps))
+    else:
+        letter_name = "None"
+        pc = "None"
+        accidental_alter = "None"
+
+    return {
+        "ps": ps,
+        "quarterLength": _QUARTER_LENGTH_REVERSE_ENCODING[prediction[1]],
+        "BOS": False,
+        "EOS": False,
+        "letter_name": letter_name,
+        "accidental": accidental_alter,
+        "pitch_class_id": pc,
+    }
 
 
 def make_sequences(tokenized_dataset, n, device="cpu"):
@@ -181,7 +217,7 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
     :param tokenized_dataset: The tokenized dataset
     :param n: The length of the n-grams
     :param device: The device on which to initialize the tensors (cpu, cuda, mps)
-    :return: X, y (a 3D tensor and a 2D tensor).
+    :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
     X dimension 1 is the N-gram
     X dimension 2 is each entry in the N-gram
     X dimension 3 is the features of the entry
@@ -190,7 +226,8 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
     y dimension 2 is the features of the y
     """
     x = []
-    y = []
+    y1 = []
+    y2 = []
     num_features = tokenized_dataset.shape[-1]
 
     for i in range(n):
@@ -199,16 +236,24 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
             new_x.append(torch.zeros((n-i-1, num_features)))
         new_x.append(tokenized_dataset[:i+1, :])
         x.append(torch.vstack(new_x))
-        y.append(tokenized_dataset[i+1, 2:2+257])
+
+        # the y values are the PS and quarter length of the next note in the sequence
+        y1.append(tokenized_dataset[i+1, 0:len(_PS_ENCODING)])
+        y2.append(tokenized_dataset[i+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)])
     
     for j in range(n, tokenized_dataset.shape[0] - 1):
+        # the x values are the items in the sequence, in sequential order
         x.append(tokenized_dataset[j-n:j, :])
-        y.append(tokenized_dataset[j+1, 2:2+257])
+
+        # the y values are the PS and quarter length of the next note in the sequence
+        y1.append(tokenized_dataset[j+1, 0:len(_PS_ENCODING)])
+        y2.append(tokenized_dataset[j+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)])
     
     x = torch.stack(x, dim=0)
-    y = torch.vstack(y)
+    y1 = torch.vstack(y1)
+    y2 = torch.vstack(y2)
     
-    return x.to(device), y.to(device)
+    return x.to(device), (y1.to(device), y2.to(device))
     
 
 def get_letter_name(ps: float):

@@ -19,7 +19,7 @@ def predict_from_sequence(model, sequence):
     prediction = model(sequence, model.init_hidden())
     _, topk_indices = torch.topk(prediction[0], 12)
     topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
-    str_prediction = music_featurizer.retrieve_class_name(random.choice(topk_indices.tolist()))
+    str_prediction = music_featurizer.retrieve_class_dictionary(random.choice(topk_indices.tolist()))
     print(str_prediction, topk_indices.tolist())
     if str_prediction == "None":
         str_prediction = "-1"
@@ -37,7 +37,7 @@ def predict_next_note(model, current_note, hidden):
     prediction = model(current_note, hidden)
     _, topk_indices = torch.topk(prediction[0], 12)
     topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
-    str_prediction = music_featurizer.retrieve_class_name(random.choice(topk_indices.tolist()))
+    str_prediction = music_featurizer.retrieve_class_dictionary(random.choice(topk_indices.tolist()))
     print(str_prediction, topk_indices.tolist())
     if str_prediction == "None":
         str_prediction = "-1"
