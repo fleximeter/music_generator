@@ -16,14 +16,16 @@ def predict_from_sequence(model, sequence):
     :param sequence: The tokenized sequence of notes
     :return: The prediction as a MIDI note number, and the hidden states as a tuple
     """
-    prediction = model(sequence, model.init_hidden())
-    _, topk_indices = torch.topk(prediction[0], 12)
-    topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
-    str_prediction = music_featurizer.retrieve_class_dictionary(random.choice(topk_indices.tolist()))
-    print(str_prediction, topk_indices.tolist())
-    if str_prediction == "None":
-        str_prediction = "-1"
-    return float(str_prediction), prediction[1]
+    prediction, hidden = model(sequence, model.init_hidden())
+    # _, topk_indices = torch.topk(prediction[0], 12)
+    # topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
+    prediction_idx_pitch_space = prediction[0].argmax().item()
+    prediction_idx_quarter_length = prediction[1].argmax().item()
+    str_prediction = music_featurizer.retrieve_class_dictionary((prediction_idx_pitch_space, prediction_idx_quarter_length))
+    # print(str_prediction, topk_indices.tolist())
+    # if str_prediction == "None":
+    #     str_prediction = "-1"
+    return str_prediction, hidden
 
 
 def predict_next_note(model, current_note, hidden):
@@ -34,57 +36,42 @@ def predict_next_note(model, current_note, hidden):
     :param hidden: The hidden states
     :return: The prediction as a MIDI note number
     """
-    prediction = model(current_note, hidden)
-    _, topk_indices = torch.topk(prediction[0], 12)
-    topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
-    str_prediction = music_featurizer.retrieve_class_dictionary(random.choice(topk_indices.tolist()))
-    print(str_prediction, topk_indices.tolist())
-    if str_prediction == "None":
-        str_prediction = "-1"
-    return float(str_prediction), prediction[1]
+    prediction, hidden = model(current_note, hidden)
+    # _, topk_indices = torch.topk(prediction[0], 12)
+    # topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
+    prediction_idx_pitch_space = prediction[0].argmax().item()
+    prediction_idx_quarter_length = prediction[1].argmax().item()
+    str_prediction = music_featurizer.retrieve_class_dictionary((prediction_idx_pitch_space, prediction_idx_quarter_length))
+    return str_prediction, hidden
 
 
 if __name__ == "__main__":
-    PATH = "data\\prompt_schutz.musicxml"
-    TRAINING_SEQUENCE_LENGTH = 5
-    NUM_FEATURES = 304
-    OUTPUT_SIZE = 257
-    HIDDEN_SIZE = 512
+    PATH = "data\\prompt1.musicxml"
+    OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
+    OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
+    HIDDEN_SIZE = 1024
+    NUM_LAYERS = 4
+    TEMPO_DICT = {1: 100}
     
     random.seed()
     score = music21.converter.parse(PATH)
     STAFF_INDEX = 3
 
-    data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]], {1: 100})[:-1]  # remove EOS
+    data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]], TEMPO_DICT)[:-1]  # remove EOS
     X = music_featurizer.tokenize(data)
     
     # Load the model from file
-    model = music_generator.LSTMMusic(NUM_FEATURES, OUTPUT_SIZE, HIDDEN_SIZE, 2)
+    model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS)
     model.load_state_dict(torch.load("music_sequencer.pth"))
     
     # Predict the next note
     NOTES_TO_PREDICT = 5
     next_note, hidden = predict_from_sequence(model, X)    
     for i in range(NOTES_TO_PREDICT):
-        if next_note < 0:
-            letter_name = "None"
-            pc = "None"
-            accidental_alter = "None"
-            next_note = "None"
-        else:
-            letter_name, pc, accidental_alter = music_featurizer.get_letter_name(next_note)
-        current_note = {}
-        current_note["BOS"] = False                                          # Beginning of part ("sentence")
-        current_note["EOS"] = False                                          # End of part ("sentence")
-        current_note["ps"] = next_note                                       # MIDI number (symbolic x257)
-        current_note["letter_name"] = letter_name                            # letter name (C, D, E, ...) (symbolic x8)
-        current_note["accidental"] = accidental_alter                        # accidental alteration (symbolic)
-        current_note["pitch_class_id"] = pc                                  # pitch class number 0, 1, 2, ... 11 (symbolic x13)
-        current_note["quarterLength"] = 1                                    # duration in quarter notes (symbolic)
-        current_note["tempo"] = 100                                          # tempo (number)
-        current_note["duration"] = 60 / 100 * current_note["quarterLength"]  # duration in seconds (number)
-        data.append(current_note)
-        next_note, hidden = predict_next_note(model, music_featurizer.tokenize([current_note]), hidden)
+        next_note["tempo"] = TEMPO_DICT[1]                                            # tempo (number)
+        next_note["duration"] = 60 / next_note["tempo"] * next_note["quarterLength"]  # duration in seconds (number)
+        data.append(next_note)
+        next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden)
 
     score = music_featurizer.unload_data(data[1:])
     score.show()

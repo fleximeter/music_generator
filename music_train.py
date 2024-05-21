@@ -55,12 +55,13 @@ def train(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, trainin
 
 if __name__ == "__main__":
     PATH = "data\\se_la_face_ay_pale.musicxml"
-    TRAINING_SEQUENCE_LENGTH = 5
+    TRAINING_SEQUENCE_LENGTH = 10
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 1024
     NUM_LAYERS = 4
     LEARNING_RATE = 0.001
+    TEMPO_DICT = {1: 100}
 
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
@@ -73,7 +74,7 @@ if __name__ == "__main__":
 
     # Prepare the data for running through the model. We want sequences of length N for training.
     for i in music_featurizer.get_staff_indices(score):
-        data = music_featurizer.load_data(score[i], {1: 100})
+        data = music_featurizer.load_data(score[i], TEMPO_DICT)
         data = music_featurizer.tokenize(data, False)
         data_x, data_y = music_featurizer.make_sequences(data, TRAINING_SEQUENCE_LENGTH, device=device)
         X.append(data_x)
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 400
     BATCH_SIZE = 100
     train(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, X, (y_pitch_space, y_quarter_length), BATCH_SIZE, NUM_EPOCHS, status_num=5, device=device)
     

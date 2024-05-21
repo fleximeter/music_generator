@@ -201,13 +201,13 @@ def retrieve_class_dictionary(prediction):
         accidental_alter = "None"
 
     return {
-        "ps": ps,
-        "quarterLength": _QUARTER_LENGTH_REVERSE_ENCODING[prediction[1]],
+        "ps": float(ps),
+        "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[1]]),
         "BOS": False,
         "EOS": False,
         "letter_name": letter_name,
-        "accidental": accidental_alter,
-        "pitch_class_id": pc,
+        "accidental": float(accidental_alter),
+        "pitch_class_id": float(pc),
     }
 
 
