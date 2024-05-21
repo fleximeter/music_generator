@@ -4,7 +4,6 @@ File: music_train.py
 Trains the music sequence generator
 """
 
-import music21
 import music_featurizer
 import music_finder
 import music_generator
@@ -67,9 +66,14 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    X, y_pitch_space, y_quarter_length = music_finder.prepare_directory(PATH, device)
-    
+    # X, y_pitch_space, y_quarter_length = music_finder.prepare_directory(PATH, device)
+    X, y_pitch_space, y_quarter_length = music_finder.prepare_m21_corpus('bach', device)
+    print(X.shape)
+
+    RETRAIN = True
     model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS).to(device)
+    if RETRAIN:
+        model.load_state_dict(torch.load("music_sequencer.pth"))
     loss_fn_pitch_space = nn.CrossEntropyLoss()
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
