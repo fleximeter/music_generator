@@ -5,11 +5,12 @@ Email: jeffreymartin@outlook.com
 Date: 9/25/21
 
 This file contains functions for creating Music21 scores and exporting them to MusicXML.
-It is a copy of what is contained in the mutil library.
+It is a copy of what is contained in the mutil library with some modifications for
+handling actual MIDI note numbers rather than Morris p-space numbers.
 """
 
 import music21
-import numpy
+import numpy as np
 import xml.etree.ElementTree
 
 from pctheory import pitch
@@ -275,15 +276,15 @@ def make_music21_list(items, durations):
                 if len(current_item) == 0:
                     m_list.append(music21.note.Rest(current_duration))
                 elif type(current_item[0]) == int or type(current_item[0]) == float:
-                    m_list.append(music21.chord.Chord([j + 60 for j in current_item], quarterLength=current_duration))
+                    m_list.append(music21.chord.Chord(current_item, quarterLength=current_duration))
                 elif type(current_item[0]) == pitch.Pitch:
                     m_list.append(music21.chord.Chord([music21.pitch.Pitch(p.p / (p.mod / 12) + 60) for p in current_item], quarterLength=current_duration))
             
             elif type(current_item) == float or type(current_item) == int:
-                if current_item == -numpy.inf:
+                if np.isneginf(current_item):
                     m_list.append(music21.note.Rest(quarterLength=current_duration))
                 else:
-                    m_list.append(music21.note.Note(current_item + 60, quarterLength=current_duration))
+                    m_list.append(music21.note.Note(current_item, quarterLength=current_duration))
             
             elif type(current_item) == pitch.Pitch:
                 m_list.append(music21.note.Note(music21.pitch.Pitch(items[i].p / (items[i].mod / 12) + 60), quarterLength=current_duration))

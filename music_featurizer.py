@@ -6,6 +6,9 @@ Featurizes a music21 staff for running through LSTM
 
 import music21
 import torch
+import math
+import xml_gen
+import numpy as np
 
 _LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
 _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.5": 1, "-1.0": 2, "-0.5": 3, "0.0": 4, "0.5": 5, "1.0": 6, "1.5": 7, "2.0": 8, "None": 9}
@@ -207,3 +210,52 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
     
     return x.to(device), y.to(device)
     
+
+def get_letter_name(ps: float):
+    """
+    Gets the letter name of a note and its accidental from a provided pitch space number
+    :param ps: The pitch space number
+    :return: The letter name, pitch-class id, and accidental alter value
+    """
+    PC_MAP = [('C', 0), ('C', -1), ('D', 0), ('D', -1), ('E', 0), ('F', 0), ('F', -1), ('G', 0), ('G', -1), ('A', 0), ('A', -1), ('B', 0)]
+    microtone, semitone = math.modf(ps)
+    pc = semitone % 12
+    letter_name, accidental_alter = PC_MAP[int(pc)]
+    accidental_alter -= microtone
+    return letter_name, float(pc + microtone), accidental_alter
+
+
+def unload_data(dataset, time_signature="3/4"):
+    """
+    Unloads data and turns it into a score again
+    :param dataset: The dataset to unload
+    :param time_signature: The time signature to use
+    :return: A music21 score
+    """
+    score = xml_gen.create_score()
+    xml_gen.add_instrument(score, "Cello", "Vc.")
+    xml_gen.add_measures(score, 50, 1, 1, meter=time_signature)
+    notes = []
+    rhythms = []
+    for item in dataset:
+        if item["ps"] == "None":
+            notes.append(-np.inf)
+        else:
+            notes.append(float(item["ps"]))
+        rhythms.append(float(item["quarterLength"]))
+    notes_m21 = xml_gen.make_music21_list(notes, rhythms)
+    xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]))
+    return score
+
+
+def get_staff_indices(score) -> list:
+    """
+    Identifies the staff indices in a music21 score
+    :param score: The music21 score
+    :return: A list of staff indices
+    """
+    indices = []
+    for i, item in enumerate(score):
+        if type(item) == music21.stream.Part or type(item) == music21.stream.PartStaff:
+            indices.append(i)
+    return indices

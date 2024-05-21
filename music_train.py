@@ -48,7 +48,7 @@ def train(model, loss_fn, optimizer, training_x, training_y, batch_size, num_epo
 
 
 if __name__ == "__main__":
-    PATH = "data\\ein_kind_ist_uns_geboren.xml"
+    PATH = "data\\se_la_face_ay_pale.musicxml"
     TRAINING_SEQUENCE_LENGTH = 5
     NUM_FEATURES = 304
     OUTPUT_SIZE = 257
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     y = []
 
     # Prepare the data for running through the model. We want sequences of length N for training.
-    for i in range(1, 7):
+    for i in music_featurizer.get_staff_indices(score):
         data = music_featurizer.load_data(score[i], {1: 100})
         data = music_featurizer.tokenize(data, False)
         data_x, data_y = music_featurizer.make_sequences(data, TRAINING_SEQUENCE_LENGTH, device=device)
