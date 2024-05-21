@@ -6,6 +6,7 @@ Trains the music sequence generator
 
 import music21
 import music_featurizer
+import music_finder
 import music_generator
 import torch
 import torch.nn as nn
@@ -54,7 +55,7 @@ def train(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, trainin
 
 
 if __name__ == "__main__":
-    PATH = "data\\se_la_face_ay_pale.musicxml"
+    PATH = "./data/train"
     TRAINING_SEQUENCE_LENGTH = 10
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
@@ -66,25 +67,8 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    score = music21.converter.parse(PATH)
-
-    X = []
-    y_pitch_space = []
-    y_quarter_length = []
-
-    # Prepare the data for running through the model. We want sequences of length N for training.
-    for i in music_featurizer.get_staff_indices(score):
-        data = music_featurizer.load_data(score[i], TEMPO_DICT)
-        data = music_featurizer.tokenize(data, False)
-        data_x, data_y = music_featurizer.make_sequences(data, TRAINING_SEQUENCE_LENGTH, device=device)
-        X.append(data_x)
-        y_pitch_space.append(data_y[0])
-        y_quarter_length.append(data_y[1])
-
-    X = torch.vstack(X)
-    y_pitch_space = torch.vstack(y_pitch_space)
-    y_quarter_length = torch.vstack(y_quarter_length)
-
+    X, y_pitch_space, y_quarter_length = music_finder.prepare_directory(PATH, device)
+    
     model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS).to(device)
     loss_fn_pitch_space = nn.CrossEntropyLoss()
     loss_fn_quarter_length = nn.CrossEntropyLoss()
