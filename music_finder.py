@@ -37,7 +37,8 @@ def prepare_m21_corpus(composer_name: str, device: str):
     :return: The X and (y tuple) items
     """
     TEMPO_DICT = {1: 100}
-    TRAINING_SEQUENCE_LENGTH = 10
+    TRAINING_SEQUENCE_MAX_LENGTH = 15
+    TRAINING_SEQUENCE_MIN_LENGTH = 3
     files = music21.corpus.getComposer(composer_name)
     files_xml = filter(lambda x: ".xml" in str(x), files)
     X = []
@@ -51,7 +52,7 @@ def prepare_m21_corpus(composer_name: str, device: str):
         for i in music_featurizer.get_staff_indices(score):
             data = music_featurizer.load_data(score[i], TEMPO_DICT)
             data = music_featurizer.tokenize(data, False)
-            data_x, data_y = music_featurizer.make_sequences(data, TRAINING_SEQUENCE_LENGTH, device=device)
+            data_x, data_y = music_featurizer.make_sequences(data, TRAINING_SEQUENCE_MAX_LENGTH, device=device)
             X.append(data_x)
             y_pitch_space.append(data_y[0])
             y_quarter_length.append(data_y[1])

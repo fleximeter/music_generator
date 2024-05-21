@@ -194,20 +194,21 @@ def retrieve_class_dictionary(prediction):
     """
     ps = _PS_REVERSE_ENCODING[prediction[0]]
     if ps != "None":
-        letter_name, pc, accidental_alter = get_letter_name(float(ps))
+        ps = float(ps)
+        letter_name, pc, accidental_alter = get_letter_name(ps)
     else:
         letter_name = "None"
         pc = "None"
         accidental_alter = "None"
 
     return {
-        "ps": float(ps),
+        "ps": ps,
         "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[1]]),
         "BOS": False,
         "EOS": False,
         "letter_name": letter_name,
-        "accidental": float(accidental_alter),
-        "pitch_class_id": float(pc),
+        "accidental": accidental_alter,
+        "pitch_class_id": pc,
     }
 
 

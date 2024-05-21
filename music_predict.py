@@ -46,11 +46,11 @@ def predict_next_note(model, current_note, hidden):
 
 
 if __name__ == "__main__":
-    PATH = "data\\prompt1.musicxml"
+    PATH = "data\\prompt2.musicxml"
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 1024
-    NUM_LAYERS = 4
+    NUM_LAYERS = 8
     TEMPO_DICT = {1: 100}
     
     random.seed()
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     
     # Predict the next note
     NOTES_TO_PREDICT = 5
-    next_note, hidden = predict_from_sequence(model, X)    
+    next_note, hidden = predict_from_sequence(model, X)
     for i in range(NOTES_TO_PREDICT):
         next_note["tempo"] = TEMPO_DICT[1]                                            # tempo (number)
         next_note["duration"] = 60 / next_note["tempo"] * next_note["quarterLength"]  # duration in seconds (number)

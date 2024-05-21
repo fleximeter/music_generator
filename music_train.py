@@ -55,11 +55,11 @@ def train(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, trainin
 
 if __name__ == "__main__":
     PATH = "./data/train"
-    TRAINING_SEQUENCE_LENGTH = 10
+    TRAINING_SEQUENCE_MAX_LENGTH = 10
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 1024
-    NUM_LAYERS = 4
+    NUM_LAYERS = 8
     LEARNING_RATE = 0.001
     TEMPO_DICT = {1: 100}
 
@@ -68,8 +68,8 @@ if __name__ == "__main__":
     
     # X, y_pitch_space, y_quarter_length = music_finder.prepare_directory(PATH, device)
     X, y_pitch_space, y_quarter_length = music_finder.prepare_m21_corpus('bach', device)
-    print(X.shape)
-
+    
+    # Whether or not to continue training the same model
     RETRAIN = True
     model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS).to(device)
     if RETRAIN:
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     NUM_EPOCHS = 400
     BATCH_SIZE = 100
-    train(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, X, (y_pitch_space, y_quarter_length), BATCH_SIZE, NUM_EPOCHS, status_num=5, device=device)
+    train(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, X, (y_pitch_space, y_quarter_length), BATCH_SIZE, NUM_EPOCHS, status_num=10, device=device)
     
     # Save the model state
     torch.save(model.state_dict(), "music_sequencer.pth")
