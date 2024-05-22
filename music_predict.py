@@ -44,7 +44,7 @@ def predict_next_note(model, current_note, hidden):
 
 
 if __name__ == "__main__":
-    PATH = "data\\prompt3.musicxml"
+    PATH = "data\\prompt4.musicxml"
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 1024
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     score = music21.converter.parse(PATH)
     STAFF_INDEX = 3
 
-    data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]], TEMPO_DICT)[:-1]  # remove EOS
+    data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]], TEMPO_DICT)
     X = music_featurizer.tokenize(data)
     
     # Load the model from file
@@ -63,13 +63,16 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load("music_sequencer.pth"))
     
     # Predict the next note
-    NOTES_TO_PREDICT = 5
-    next_note, hidden = predict_from_sequence(model, X)
+    NOTES_TO_PREDICT = 10
     for i in range(NOTES_TO_PREDICT):
+        next_note, hidden = predict_from_sequence(model, X)
         next_note["tempo"] = TEMPO_DICT[1]                                            # tempo (number)
         next_note["duration"] = 60 / next_note["tempo"] * next_note["quarterLength"]  # duration in seconds (number)
         data.append(next_note)
-        next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden)
+        X = X.reshape(X.shape[1:])
+        X = torch.vstack((X, music_featurizer.tokenize([next_note], False)))[1:]
+        X = X.reshape((1,) + X.shape)
+        # next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden)
 
-    score = music_featurizer.unload_data(data[1:])
+    score = music_featurizer.unload_data(data)
     score.show()

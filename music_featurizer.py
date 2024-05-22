@@ -6,6 +6,7 @@ Featurizes a music21 staff for running through LSTM
 
 import music21
 import torch
+import torch.nn.functional as F
 import math
 import xml_gen
 import numpy as np
@@ -68,10 +69,16 @@ for i in range(1, 64, 2):
     _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/8"
     j += 1
 
+# print(f"PS Encoding: {len(_PS_ENCODING)}")
+# print(f"Quarter Length Encoding: {len(_QUARTER_LENGTH_ENCODING)}")
+# print(f"Pitch Class Encoding: {len(_PITCH_CLASS_ENCODING)}")
+# print(f"Letter Name Encoding: {len(_LETTER_NAME_ENCODING)}")
+# print(f"Accidental Encoding: {len(_ACCIDENTAL_ENCODING)}")
+
 ###############################################################################################################
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
 ###############################################################################################################
-_NUM_FEATURES = len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + len(_PITCH_CLASS_ENCODING) + len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_ENCODING) + 4
+_NUM_FEATURES = len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + len(_PITCH_CLASS_ENCODING) + len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_ENCODING)
 _NUM_OUTPUTS = len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
@@ -87,7 +94,7 @@ def load_data(staff, tempo_map):
     tempo = 60
 
     # Add BOS
-    dataset.append({"BOS": True, "EOS": False, "ps": "None", "letter_name": "None", "accidental": "None", "pitch_class_id": "None", "quarterLength": "None", "tempo": "None", "duration": "None"})
+    # dataset.append({"BOS": True, "EOS": False, "ps": "None", "letter_name": "None", "accidental": "None", "pitch_class_id": "None", "quarterLength": "None", "tempo": "None", "duration": "None"})
 
     tie_status = False
     current_note = {}
@@ -143,7 +150,7 @@ def load_data(staff, tempo_map):
                     current_note = {}
             
     # Add EOS
-    dataset.append({"BOS": False, "EOS": True, "ps": "None", "letter_name": "None", "accidental": "None", "pitch_class_id": "None", "quarterLength": "None", "tempo": "None", "duration": "None"})
+    # dataset.append({"BOS": False, "EOS": True, "ps": "None", "letter_name": "None", "accidental": "None", "pitch_class_id": "None", "quarterLength": "None", "tempo": "None", "duration": "None"})
 
     return dataset
 
@@ -160,25 +167,21 @@ def tokenize(dataset, batched=True):
     """
     entries = []
     for entry in dataset:
-        bos = torch.Tensor([int(entry["BOS"]), int(entry["EOS"])])
-        ps = torch.zeros((len(_PS_ENCODING)))
-        ps[_PS_ENCODING[str(entry["ps"])]] = 1
-        ql = torch.zeros((len(_QUARTER_LENGTH_ENCODING)))
+        # One-hots
+        # bos = torch.tensor([float(entry["BOS"]), float(entry["EOS"])]).float()
+        ps = F.one_hot(torch.tensor(_PS_ENCODING[str(entry["ps"])]), len(_PS_ENCODING)).float()
         if entry["quarterLength"] == "None":
-            ql[_QUARTER_LENGTH_ENCODING[str(entry["quarterLength"])]] = 1
+            ql = F.one_hot(torch.tensor(_QUARTER_LENGTH_ENCODING[str(entry["quarterLength"])]), len(_QUARTER_LENGTH_ENCODING)).float()
         else:
-            ql[_QUARTER_LENGTH_ENCODING[str(Fraction(entry["quarterLength"]))]] = 1
-        letter = torch.zeros((len(_LETTER_NAME_ENCODING)))
-        letter[_LETTER_NAME_ENCODING[entry["letter_name"]]] = 1
-        accidental = torch.zeros((len(_ACCIDENTAL_ENCODING)))
-        accidental[_ACCIDENTAL_ENCODING[str(entry["accidental"])]] = 1
-        pc = torch.zeros((len(_PITCH_CLASS_ENCODING)))
-        pc[_PITCH_CLASS_ENCODING[str(entry["pitch_class_id"])]] = 1
-        if entry["tempo"] == "None" or entry["duration"] == "None":
-            tempo = torch.zeros((2))
-        else:
-            tempo = torch.Tensor([entry["tempo"], entry["duration"]])
-        entries.append(torch.hstack((ps, ql, pc, letter, accidental, tempo, bos)))
+            ql = F.one_hot(torch.tensor(_QUARTER_LENGTH_ENCODING[str(Fraction(entry["quarterLength"]))]), len(_QUARTER_LENGTH_ENCODING)).float()
+        letter = F.one_hot(torch.tensor(_LETTER_NAME_ENCODING[str(entry["letter_name"])]), len(_LETTER_NAME_ENCODING)).float()
+        accidental = F.one_hot(torch.tensor(_ACCIDENTAL_ENCODING[str(entry["accidental"])]), len(_ACCIDENTAL_ENCODING)).float()
+        pc = F.one_hot(torch.tensor(_PITCH_CLASS_ENCODING[str(entry["pitch_class_id"])]), len(_PITCH_CLASS_ENCODING)).float()
+        #if entry["tempo"] == "None" or entry["duration"] == "None":
+        #    tempo = torch.zeros((2)).float()
+        #else:
+        #    tempo = torch.tensor([entry["tempo"], entry["duration"]]).float()
+        entries.append(torch.hstack((ps, ql, pc, letter, accidental)))
 
     entries = torch.vstack(entries)
     if batched:
@@ -230,18 +233,18 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
     y2 = []
     num_features = tokenized_dataset.shape[-1]
 
-    for i in range(n):
-        new_x = []
-        if n-i-1 > 0:
-            new_x.append(torch.zeros((n-i-1, num_features)))
-        new_x.append(tokenized_dataset[:i+1, :])
-        x.append(torch.vstack(new_x))
+    # for i in range(n):
+    #     new_x = []
+    #     if n-i-1 > 0:
+    #         new_x.append(torch.zeros((n-i-1, num_features)))
+    #     new_x.append(tokenized_dataset[:i+1, :])
+    #     x.append(torch.vstack(new_x))
 
-        # the y values are the PS and quarter length of the next note in the sequence
-        ps = tokenized_dataset[i+1, 0:len(_PS_ENCODING)]
-        ql = tokenized_dataset[i+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
-        y1.append(ps.argmax())
-        y2.append(ql.argmax())
+    #     # the y values are the PS and quarter length of the next note in the sequence
+    #     ps = tokenized_dataset[i+1, 0:len(_PS_ENCODING)]
+    #     ql = tokenized_dataset[i+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+    #     y1.append(ps.argmax())
+    #     y2.append(ql.argmax())
     
     for j in range(n, tokenized_dataset.shape[0] - 1):
         # the x values are the items in the sequence, in sequential order
