@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, training_data_x, min_length, max_length, batch_size, num_epochs, status_num=5, device="cpu"):
+def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, training_data_x, min_length, max_length, batch_size, num_epochs, status_num=5, save_every=100, file="music_sequencer_1.pth", device="cpu"):
     """
     Trains the model. This training function expects a batch of data X, which will be turned into 
     sequences of different lengths from min_length to max_length. The labels y are calculated as
@@ -27,6 +27,8 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
     :param batch_size: The size of each batch to run through LSTM
     :param num_epochs: The number of epochs for training
     :param status_num: How often (in epochs) to print an update message
+    :param save_every: Save every N times to disk
+    :param file: The file name (for saving to disk)
     :param device: The device that is being used for the hidden matrices
     """
 
@@ -84,6 +86,10 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
         if epoch % status_num == status_num - 1:
             print(f"Epoch {epoch+1}, loss: {total_loss.item()}")
 
+        if epoch % save_every == save_every - 1:
+            torch.save(model.state_dict(), file)
+
+
 
 if __name__ == "__main__":
     PATH = "./data/train"
@@ -92,7 +98,7 @@ if __name__ == "__main__":
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 1024
-    NUM_LAYERS = 4
+    NUM_LAYERS = 8
     LEARNING_RATE = 0.001
 
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
@@ -103,18 +109,21 @@ if __name__ == "__main__":
     
     # Whether or not to continue training the same model
     RETRAIN = True
-    model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS).to(device)
+    model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, 
+                                      OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS).to(device)
     if RETRAIN:
         model.load_state_dict(torch.load("music_sequencer.pth"))
     loss_fn_pitch_space = nn.CrossEntropyLoss()
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    NUM_EPOCHS = 400
-    BATCH_SIZE = 100
+    NUM_EPOCHS = 800
+    BATCH_SIZE = 200
 
     print(f"Training for {NUM_EPOCHS} epochs...")
-    train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, X, TRAINING_SEQUENCE_MIN_LENGTH, TRAINING_SEQUENCE_MAX_LENGTH, BATCH_SIZE, NUM_EPOCHS, status_num=20, device=device)
+    train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, X, 
+                    TRAINING_SEQUENCE_MIN_LENGTH, TRAINING_SEQUENCE_MAX_LENGTH, BATCH_SIZE, 
+                    NUM_EPOCHS, 20, 100, "music_sequencer_1.pth", device=device)
     
     # Save the model state
-    torch.save(model.state_dict(), "music_sequencer.pth")
+    # torch.save(model.state_dict(), "music_sequencer.pth")
