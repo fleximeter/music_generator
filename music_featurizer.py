@@ -1,7 +1,8 @@
 """
 File: music_featurizer.py
 
-Featurizes a music21 staff for running through LSTM
+This module has featurization functions for preparing data to run through the model,
+and for postprocessing generated data.
 """
 
 import music21
@@ -11,6 +12,11 @@ import math
 import xml_gen
 import numpy as np
 from fractions import Fraction
+
+
+###################################################################################################################
+# Feature dictionaries
+###################################################################################################################
 
 _LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
 _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.5": 1, "-1.0": 2, "-0.5": 3, "0.0": 4, "0.5": 5, "1.0": 6, "1.5": 7, "2.0": 8, "None": 9}
@@ -70,11 +76,39 @@ for i in range(1, 64, 2):
     j += 1
 
 
-###############################################################################################################
+###################################################################################################################
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
-###############################################################################################################
+###################################################################################################################
 _NUM_FEATURES = len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + len(_PITCH_CLASS_ENCODING) + len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_ENCODING)
 _NUM_OUTPUTS = len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
+
+
+def convert_ps_to_note(ps: float):
+    """
+    Gets the letter name of a note, its accidental, and the pitch class from a provided pitch space number
+    :param ps: The pitch space number
+    :return: The letter name, pitch-class id, and accidental alter value
+    """
+    PC_MAP = [('C', 0), ('C', -1), ('D', 0), ('D', -1), ('E', 0), ('F', 0), ('F', -1), ('G', 0), ('G', -1), ('A', 0), ('A', -1), ('B', 0)]
+    microtone, semitone = math.modf(ps)
+    pc = semitone % 12
+    letter_name, accidental_alter = PC_MAP[int(pc)]
+    accidental_alter -= microtone
+    return letter_name, float(pc + microtone), accidental_alter
+
+
+def get_staff_indices(score) -> list:
+    """
+    Identifies the staff indices in a music21 score, since not all
+    entries in the score are staves.
+    :param score: The music21 score
+    :return: A list of staff indices
+    """
+    indices = []
+    for i, item in enumerate(score):
+        if type(item) == music21.stream.Part or type(item) == music21.stream.PartStaff:
+            indices.append(i)
+    return indices
 
 
 def load_data(staff, tempo_map):
@@ -150,6 +184,65 @@ def load_data(staff, tempo_map):
     return dataset
 
 
+def make_n_gram_sequences(tokenized_dataset, n, device="cpu"):
+    """
+    Makes N-gram sequences from a tokenized dataset
+    :param tokenized_dataset: The tokenized dataset
+    :param n: The length of the n-grams
+    :param device: The device on which to initialize the tensors (cpu, cuda, mps)
+    :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
+    X dimension 1 is the N-gram
+    X dimension 2 is each entry in the N-gram
+    X dimension 3 is the features of the entry
+    y dimension 1 is the y for the corresponding N-gram
+    """
+    x = []
+    y1 = []
+    y2 = []
+    
+    for j in range(n, tokenized_dataset.shape[0] - 1):
+        # the x values are the items in the sequence, in sequential order
+        x.append(tokenized_dataset[j-n:j, :])
+
+        # the y values are the PS and quarter length of the next note in the sequence
+        ps = tokenized_dataset[j+1, 0:len(_PS_ENCODING)]
+        ql = tokenized_dataset[j+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+        y1.append(ps.argmax())
+        y2.append(ql.argmax())
+    
+    x = torch.stack(x, dim=0)
+    y1 = torch.tensor(y1)
+    y2 = torch.tensor(y2)
+    
+    return x.to(device), (y1.to(device), y2.to(device))
+
+
+def retrieve_class_dictionary(prediction):
+    """
+    Retrives a predicted class's information based on its id
+    :param prediction: The prediction tuple
+    :return: The prediction dictionary
+    """
+    ps = _PS_REVERSE_ENCODING[prediction[0]]
+    if ps != "None":
+        ps = float(ps)
+        letter_name, pc, accidental_alter = convert_ps_to_note(ps)
+    else:
+        letter_name = "None"
+        pc = "None"
+        accidental_alter = "None"
+
+    return {
+        "ps": ps,
+        "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[1]]),
+        "BOS": False,
+        "EOS": False,
+        "letter_name": letter_name,
+        "accidental": accidental_alter,
+        "pitch_class_id": pc,
+    }
+
+
 def tokenize(dataset, batched=True):
     """
     Tokenize a dataset. You can use this for making predictions if you want.
@@ -184,84 +277,10 @@ def tokenize(dataset, batched=True):
     return entries
 
 
-def retrieve_class_dictionary(prediction):
-    """
-    Retrives a predicted class's information based on its id
-    :param prediction: The prediction tuple
-    :return: The prediction dictionary
-    """
-    ps = _PS_REVERSE_ENCODING[prediction[0]]
-    if ps != "None":
-        ps = float(ps)
-        letter_name, pc, accidental_alter = get_letter_name(ps)
-    else:
-        letter_name = "None"
-        pc = "None"
-        accidental_alter = "None"
-
-    return {
-        "ps": ps,
-        "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[1]]),
-        "BOS": False,
-        "EOS": False,
-        "letter_name": letter_name,
-        "accidental": accidental_alter,
-        "pitch_class_id": pc,
-    }
-
-
-def make_sequences(tokenized_dataset, n, device="cpu"):
-    """
-    Makes N-gram sequences from a tokenized dataset
-    :param tokenized_dataset: The tokenized dataset
-    :param n: The length of the n-grams
-    :param device: The device on which to initialize the tensors (cpu, cuda, mps)
-    :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
-    X dimension 1 is the N-gram
-    X dimension 2 is each entry in the N-gram
-    X dimension 3 is the features of the entry
-
-    y dimension 1 is the y for the corresponding N-gram
-    """
-    x = []
-    y1 = []
-    y2 = []
-    num_features = tokenized_dataset.shape[-1]
-    
-    for j in range(n, tokenized_dataset.shape[0] - 1):
-        # the x values are the items in the sequence, in sequential order
-        x.append(tokenized_dataset[j-n:j, :])
-
-        # the y values are the PS and quarter length of the next note in the sequence
-        ps = tokenized_dataset[j+1, 0:len(_PS_ENCODING)]
-        ql = tokenized_dataset[j+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
-        y1.append(ps.argmax())
-        y2.append(ql.argmax())
-    
-    x = torch.stack(x, dim=0)
-    y1 = torch.tensor(y1)
-    y2 = torch.tensor(y2)
-    
-    return x.to(device), (y1.to(device), y2.to(device))
-    
-
-def get_letter_name(ps: float):
-    """
-    Gets the letter name of a note and its accidental from a provided pitch space number
-    :param ps: The pitch space number
-    :return: The letter name, pitch-class id, and accidental alter value
-    """
-    PC_MAP = [('C', 0), ('C', -1), ('D', 0), ('D', -1), ('E', 0), ('F', 0), ('F', -1), ('G', 0), ('G', -1), ('A', 0), ('A', -1), ('B', 0)]
-    microtone, semitone = math.modf(ps)
-    pc = semitone % 12
-    letter_name, accidental_alter = PC_MAP[int(pc)]
-    accidental_alter -= microtone
-    return letter_name, float(pc + microtone), accidental_alter
-
-
 def unload_data(dataset, time_signature="3/4"):
     """
-    Unloads data and turns it into a score again
+    Unloads data and turns it into a score again, in preparation for
+    rendering a MusicXML file.
     :param dataset: The dataset to unload
     :param time_signature: The time signature to use
     :return: A music21 score
@@ -280,16 +299,3 @@ def unload_data(dataset, time_signature="3/4"):
     notes_m21 = xml_gen.make_music21_list(notes, rhythms)
     xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]))
     return score
-
-
-def get_staff_indices(score) -> list:
-    """
-    Identifies the staff indices in a music21 score
-    :param score: The music21 score
-    :return: A list of staff indices
-    """
-    indices = []
-    for i, item in enumerate(score):
-        if type(item) == music21.stream.Part or type(item) == music21.stream.PartStaff:
-            indices.append(i)
-    return indices
