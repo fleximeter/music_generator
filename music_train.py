@@ -96,8 +96,6 @@ if __name__ == "__main__":
     
     # X, y_pitch_space, y_quarter_length = music_finder.prepare_directory(PATH, device)
     X = music_finder.prepare_m21_corpus('bach', device)
-    # print(X[0, 0, :].shape)
-    # print(torch.nonzero(X[9, :, :]))
     
     # Whether or not to continue training the same model
     RETRAIN = True

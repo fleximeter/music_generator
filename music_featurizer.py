@@ -69,11 +69,6 @@ for i in range(1, 64, 2):
     _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/8"
     j += 1
 
-# print(f"PS Encoding: {len(_PS_ENCODING)}")
-# print(f"Quarter Length Encoding: {len(_QUARTER_LENGTH_ENCODING)}")
-# print(f"Pitch Class Encoding: {len(_PITCH_CLASS_ENCODING)}")
-# print(f"Letter Name Encoding: {len(_LETTER_NAME_ENCODING)}")
-# print(f"Accidental Encoding: {len(_ACCIDENTAL_ENCODING)}")
 
 ###############################################################################################################
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
@@ -232,19 +227,6 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
     y1 = []
     y2 = []
     num_features = tokenized_dataset.shape[-1]
-
-    # for i in range(n):
-    #     new_x = []
-    #     if n-i-1 > 0:
-    #         new_x.append(torch.zeros((n-i-1, num_features)))
-    #     new_x.append(tokenized_dataset[:i+1, :])
-    #     x.append(torch.vstack(new_x))
-
-    #     # the y values are the PS and quarter length of the next note in the sequence
-    #     ps = tokenized_dataset[i+1, 0:len(_PS_ENCODING)]
-    #     ql = tokenized_dataset[i+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
-    #     y1.append(ps.argmax())
-    #     y2.append(ql.argmax())
     
     for j in range(n, tokenized_dataset.shape[0] - 1):
         # the x values are the items in the sequence, in sequential order

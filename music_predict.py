@@ -38,7 +38,7 @@ def predict_next_note(model, current_note, hidden):
     prediction_ql = torch.reshape(prediction[1], (prediction[1].size()))
     prediction_idx_pitch_space = prediction_ps.argmax().item()
     prediction_idx_quarter_length = prediction_ql.argmax().item()
-    print(prediction_idx_pitch_space, prediction_idx_quarter_length)
+    # print(prediction_idx_pitch_space, prediction_idx_quarter_length)
     str_prediction = music_featurizer.retrieve_class_dictionary((prediction_idx_pitch_space, prediction_idx_quarter_length))
     return str_prediction, hidden
 
@@ -64,15 +64,10 @@ if __name__ == "__main__":
     
     # Predict the next note
     NOTES_TO_PREDICT = 10
+    next_note, hidden = predict_from_sequence(model, X)
     for i in range(NOTES_TO_PREDICT):
-        next_note, hidden = predict_from_sequence(model, X)
-        next_note["tempo"] = TEMPO_DICT[1]                                            # tempo (number)
-        next_note["duration"] = 60 / next_note["tempo"] * next_note["quarterLength"]  # duration in seconds (number)
         data.append(next_note)
-        X = X.reshape(X.shape[1:])
-        X = torch.vstack((X, music_featurizer.tokenize([next_note], False)))[1:]
-        X = X.reshape((1,) + X.shape)
-        # next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden)
+        next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden)
 
     score = music_featurizer.unload_data(data)
     score.show()
