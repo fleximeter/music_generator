@@ -224,7 +224,6 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
     X dimension 3 is the features of the entry
 
     y dimension 1 is the y for the corresponding N-gram
-    y dimension 2 is the features of the y
     """
     x = []
     y1 = []
@@ -239,20 +238,24 @@ def make_sequences(tokenized_dataset, n, device="cpu"):
         x.append(torch.vstack(new_x))
 
         # the y values are the PS and quarter length of the next note in the sequence
-        y1.append(tokenized_dataset[i+1, 0:len(_PS_ENCODING)])
-        y2.append(tokenized_dataset[i+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)])
+        ps = tokenized_dataset[i+1, 0:len(_PS_ENCODING)]
+        ql = tokenized_dataset[i+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+        y1.append(ps.argmax())
+        y2.append(ql.argmax())
     
     for j in range(n, tokenized_dataset.shape[0] - 1):
         # the x values are the items in the sequence, in sequential order
         x.append(tokenized_dataset[j-n:j, :])
 
         # the y values are the PS and quarter length of the next note in the sequence
-        y1.append(tokenized_dataset[j+1, 0:len(_PS_ENCODING)])
-        y2.append(tokenized_dataset[j+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)])
+        ps = tokenized_dataset[j+1, 0:len(_PS_ENCODING)]
+        ql = tokenized_dataset[j+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+        y1.append(ps.argmax())
+        y2.append(ql.argmax())
     
     x = torch.stack(x, dim=0)
-    y1 = torch.vstack(y1)
-    y2 = torch.vstack(y2)
+    y1 = torch.tensor(y1)
+    y2 = torch.tensor(y2)
     
     return x.to(device), (y1.to(device), y2.to(device))
     

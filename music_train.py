@@ -59,7 +59,7 @@ if __name__ == "__main__":
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 1024
-    NUM_LAYERS = 8
+    NUM_LAYERS = 4
     LEARNING_RATE = 0.001
     TEMPO_DICT = {1: 100}
 

@@ -58,8 +58,8 @@ def prepare_m21_corpus(composer_name: str, device: str):
             y_quarter_length.append(data_y[1])
 
     X = torch.vstack(X)
-    y_pitch_space = torch.vstack(y_pitch_space)
-    y_quarter_length = torch.vstack(y_quarter_length)
+    y_pitch_space = torch.hstack(y_pitch_space)
+    y_quarter_length = torch.hstack(y_quarter_length)
 
     return X, y_pitch_space, y_quarter_length
 

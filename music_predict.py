@@ -17,14 +17,11 @@ def predict_from_sequence(model, sequence):
     :return: The prediction as a MIDI note number, and the hidden states as a tuple
     """
     prediction, hidden = model(sequence, model.init_hidden())
-    # _, topk_indices = torch.topk(prediction[0], 12)
-    # topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
-    prediction_idx_pitch_space = prediction[0].argmax().item()
-    prediction_idx_quarter_length = prediction[1].argmax().item()
+    prediction_ps = torch.reshape(prediction[0], (prediction[0].size()))
+    prediction_ql = torch.reshape(prediction[1], (prediction[1].size()))
+    prediction_idx_pitch_space = prediction_ps.argmax().item()
+    prediction_idx_quarter_length = prediction_ql.argmax().item()
     str_prediction = music_featurizer.retrieve_class_dictionary((prediction_idx_pitch_space, prediction_idx_quarter_length))
-    # print(str_prediction, topk_indices.tolist())
-    # if str_prediction == "None":
-    #     str_prediction = "-1"
     return str_prediction, hidden
 
 
@@ -37,20 +34,21 @@ def predict_next_note(model, current_note, hidden):
     :return: The prediction as a MIDI note number
     """
     prediction, hidden = model(current_note, hidden)
-    # _, topk_indices = torch.topk(prediction[0], 12)
-    # topk_indices = topk_indices.reshape((topk_indices.shape[-1]))
-    prediction_idx_pitch_space = prediction[0].argmax().item()
-    prediction_idx_quarter_length = prediction[1].argmax().item()
+    prediction_ps = torch.reshape(prediction[0], (prediction[0].size()))
+    prediction_ql = torch.reshape(prediction[1], (prediction[1].size()))
+    prediction_idx_pitch_space = prediction_ps.argmax().item()
+    prediction_idx_quarter_length = prediction_ql.argmax().item()
+    print(prediction_idx_pitch_space, prediction_idx_quarter_length)
     str_prediction = music_featurizer.retrieve_class_dictionary((prediction_idx_pitch_space, prediction_idx_quarter_length))
     return str_prediction, hidden
 
 
 if __name__ == "__main__":
-    PATH = "data\\prompt2.musicxml"
+    PATH = "data\\prompt3.musicxml"
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 1024
-    NUM_LAYERS = 8
+    NUM_LAYERS = 4
     TEMPO_DICT = {1: 100}
     
     random.seed()
