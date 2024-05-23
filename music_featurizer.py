@@ -370,3 +370,10 @@ class MusicXMLDataSet(Dataset):
         targets2 = torch.tensor(targets2)
         return sequences_padded, targets1, targets2, lengths
     
+    def prepare_prediction(sequence, max_length=20):
+        lengths = torch.tensor([sequence.shape[1]])
+        if sequence.shape[1] < max_length:
+            zeros = torch.zeros((1, max_length - sequence.shape[1], sequence.shape[2]))
+            sequence = torch.cat((sequence, zeros), dim=1)
+        return sequence, lengths
+    

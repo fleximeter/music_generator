@@ -6,7 +6,7 @@ Featurizes a music21 staff for running through LSTM
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class LSTMMusic(nn.Module):
     """
@@ -36,11 +36,18 @@ class LSTMMusic(nn.Module):
         self.device = device
 
     def forward(self, x, lengths, hidden_states):
+        # pack the input, run it through the model, and unpack it
         packed_input = pack_padded_sequence(x, lengths, batch_first=True)
         packed_output, hidden_states = self.lstm(packed_input, hidden_states)
         output, _ = pad_packed_sequence(packed_output, batch_first=True)
+
+        # get the index of the last output
         idx = (lengths - 1).view(-1, 1, 1).expand(output.size(0), 1, output.size(2)).to(self.device)
         last_output = output.gather(1, idx).squeeze(1)
+        print(x.shape)
+        print(last_output.shape)
+
+        # run the last output through the model
         output_pitch_space = self.output_pitch_space(last_output)
         output_quarter_length = self.output_quarter_length(last_output)
         return (output_pitch_space, output_quarter_length), hidden_states

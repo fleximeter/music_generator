@@ -18,8 +18,9 @@ def predict_from_sequence(model, sequence):
     :param sequence: The tokenized sequence of notes
     :return: The prediction as a MIDI note number, and the hidden states as a tuple
     """
-    prediction, hidden = model.predict(sequence, model.init_hidden())
-    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0], prediction[1]))
+    s, l = music_featurizer.MusicXMLDataSet.prepare_prediction(sequence, 20)
+    prediction, hidden = model(s, l, model.init_hidden())
+    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item()))
     return predicted_note, hidden
 
 
@@ -31,8 +32,9 @@ def predict_next_note(model, current_note, hidden):
     :param hidden: The hidden states
     :return: The prediction as a MIDI note number
     """
-    prediction, hidden = model.predict(current_note, hidden)
-    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0], prediction[1]))
+    s, l = music_featurizer.MusicXMLDataSet.prepare_prediction(current_note, 20)
+    prediction, hidden = model(s, l, hidden)
+    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item()))
     return predicted_note, hidden
 
 
@@ -58,7 +60,8 @@ if __name__ == "__main__":
     next_note, hidden = predict_from_sequence(model, X)
     for i in range(NOTES_TO_PREDICT):
         data.append(next_note)
+        X = music_featurizer.tokenize(data)
         next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden)
 
     score = music_featurizer.unload_data(data)
-    score.show()
+    #score.show()
