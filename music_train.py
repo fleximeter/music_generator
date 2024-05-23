@@ -11,6 +11,7 @@ import music_generator
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 
 
 def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, training_data_x, min_length, max_length, batch_size, num_epochs, status_num=5, save_every=100, file="music_sequencer_1.pth", device="cpu"):
@@ -33,12 +34,8 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
     :param device: The device that is being used for the hidden matrices
     """
 
-    # Generate sequences of different lengths. For each length, a sequence dictionary is stored.
-    # This dictionary has the X and y values in it.
-    sequences = []
-    for i in range(min_length, max_length + 1):
-        data_x, data_y = music_featurizer.make_n_gram_sequences(training_data_x, i, device=device)
-        sequences.append({"sequence_length": i, "X": data_x, "y_ps": data_y[0], "y_ql": data_y[1]})
+    # Generate sequences
+    sequences = music_featurizer.make_n_gram_sequences(training_data_x, max_length+1, device=device)
 
     # Train for N epochs
     for epoch in range(num_epochs):
@@ -54,16 +51,17 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
         
         # Predict sequences of different lengths. Each time the outer loop runs,
         # the sequence length will be different.
-        for i, sequences_n in enumerate(sequences):
+        for i in range(min_length, max_length+1):
             # Predict each sequence of length n, in batches
-            for j in range(0, sequences_n["X"].shape[0], batch_size):
-                size2 = min(batch_size, sequences_n["X"].shape[0] - j)
+            for j in range(0, sequences.shape[0], batch_size):
+                size2 = min(batch_size, sequences.shape[0] - j)
                 hidden = model.init_hidden(batch_size=size2, device=device)
-                output, hidden = model(sequences_n["X"][j:j+size2, :, :], hidden)
+                labels = music_featurizer.make_labels(sequences[j:j+size2, i, :])
+                output, hidden = model(sequences[j:j+size2, :i, :], hidden)
                 
                 # Record the proper labels
-                y_pitch_space.append(sequences_n["y_ps"][j:j+size2])
-                y_quarter_length.append(sequences_n["y_ql"][j:j+size2])
+                y_pitch_space.append(labels[0])
+                y_quarter_length.append(labels[1])
                 
                 # Record the predicted labels
                 y_hat_pitch_space.append(output[0])
@@ -91,25 +89,27 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
             torch.save(model.state_dict(), file)
 
 
-
 if __name__ == "__main__":
     PATH = "./data/train"
-    TRAINING_SEQUENCE_MAX_LENGTH = 16
+    TRAINING_SEQUENCE_MAX_LENGTH = 20
     TRAINING_SEQUENCE_MIN_LENGTH = 2
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
     HIDDEN_SIZE = 512
     NUM_LAYERS = 4
     LEARNING_RATE = 0.001
+    BATCH_SIZE = 100
 
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
     # X = music_finder.prepare_directory(PATH, device)
-    X = music_finder.prepare_m21_corpus('bach', device)
+    files = music_finder.get_m21_corpus('bach')
+    dataset = music_featurizer.MusicXMLDataSet(files, 2, 20)
+    dataloader = DataLoader(dataset, BATCH_SIZE, True, num_workers=4)
     
     # Whether or not to continue training the same model
-    RETRAIN = True
+    RETRAIN = False
     model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, 
                                       OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS).to(device)
     if RETRAIN:
@@ -118,13 +118,11 @@ if __name__ == "__main__":
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    NUM_EPOCHS = 1200
-    BATCH_SIZE = 100
-
+    NUM_EPOCHS = 200
     print(f"Training for {NUM_EPOCHS} epochs...")
-    train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, X, 
-                    TRAINING_SEQUENCE_MIN_LENGTH, TRAINING_SEQUENCE_MAX_LENGTH, BATCH_SIZE, 
-                    NUM_EPOCHS, 10, 100, "music_sequencer_1.pth", device=device)
+    # train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, X, 
+    #                 TRAINING_SEQUENCE_MIN_LENGTH, TRAINING_SEQUENCE_MAX_LENGTH, BATCH_SIZE, 
+    #                 NUM_EPOCHS, 10, 100, "music_sequencer_1.pth", device=device)
     
     # Save the model state
     # torch.save(model.state_dict(), "music_sequencer.pth")

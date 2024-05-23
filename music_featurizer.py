@@ -12,6 +12,7 @@ import math
 import xml_gen
 import numpy as np
 from fractions import Fraction
+from torch.utils.data import Dataset
 
 
 ###################################################################################################################
@@ -195,27 +196,35 @@ def make_n_gram_sequences(tokenized_dataset, n, device="cpu"):
     X dimension 1 is the N-gram
     X dimension 2 is each entry in the N-gram
     X dimension 3 is the features of the entry
-    y dimension 1 is the y for the corresponding N-gram
     """
-    x = []
-    y1 = []
-    y2 = []
-    
+    x = []    
     for j in range(n, tokenized_dataset.shape[0] - 1):
         # the x values are the items in the sequence, in sequential order
         x.append(tokenized_dataset[j-n:j, :])
+    x = torch.stack(x, dim=0)    
+    return x.to(device)
 
-        # the y values are the PS and quarter length of the next note in the sequence
-        ps = tokenized_dataset[j+1, 0:len(_PS_ENCODING)]
-        ql = tokenized_dataset[j+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
-        y1.append(ps.argmax())
-        y2.append(ql.argmax())
+
+def make_labels(x):
+    """
+    Generates a label tensor for a 3D tensor of sequences. The label tensor is
+    calculated for a particular index in dimension 2 of the 3D sequences.
+    X dimension 1 is the batch length
+    X dimension 2 is the total sequence length
+    X dimension 3 is the features of individual notes in the sequence
     
-    x = torch.stack(x, dim=0)
-    y1 = torch.tensor(y1)
-    y2 = torch.tensor(y2)
-    
-    return x.to(device), (y1.to(device), y2.to(device))
+    :param x: The 3D tensor of sequences
+    :return: y1, y2 (two 2D tensors)
+    """
+    if x.ndim == 3:
+        pitch_space = x[:, :, 0:len(_PS_ENCODING)]
+        quarter_length = x[:, :, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+    else:
+        pitch_space = x[:, 0:len(_PS_ENCODING)]
+        quarter_length = x[:, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+    y1 = pitch_space.argmax(dim=-1)
+    y2 = quarter_length.argmax(dim=-1)
+    return y1, y2
 
 
 def retrieve_class_dictionary(prediction):
@@ -300,3 +309,58 @@ def unload_data(dataset, time_signature="3/4"):
     notes_m21 = xml_gen.make_music21_list(notes, rhythms)
     xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]))
     return score
+
+
+class MusicXMLDataSet(Dataset):
+    def __init__(self, file_list, min_sequence_length, max_sequence_length):
+        """
+        Makes a dataset of sequenced notes based on a music XML corpus. This dataset
+        will make sequences of notes and labels for the next note in the sequence,
+        for generative training.
+        :param file_list: A list of MusicXML files to turn into a dataset
+        :param min_sequence_length: The minimum sequence length
+        :param max_sequence_length: The maximum sequence length
+        """
+        self.data, self.labels = self._load_data(file_list, min_sequence_length, max_sequence_length)
+    
+    def __len__(self):
+        """
+        Gets the number of entries in the dataset
+        :return: The number of entries in the dataset
+        """
+        return self.data.shape[0]
+    
+    def __getitem__(self, idx):
+        """
+        Gets the next item and label in the dataset
+        :return: sample, label
+        """
+        sample = self.data[idx, :, :]
+        label = self.labels[idx]
+        return sample, label
+    
+    def _load_data(self, file_list, min_sequence_length, max_sequence_length):
+        """
+        Parses each MusicXML file and generates sequences and labels from it
+        :param file_list: A list of MusicXML files to turn into a dataset
+        :param min_sequence_length: The minimum sequence length
+        :param max_sequence_length: The maximum sequence length
+        """
+        x = []
+        sequences = []
+        labels = []
+        for file in file_list:
+            score = music21.corpus.parse(file)
+            for i in get_staff_indices(score):
+                data = load_data(score[i], {1: 100})
+                data = tokenize(data, False)
+                x.append(data)
+        x = torch.vstack(x)
+        print(x.shape)
+
+        for i in range(min_sequence_length, max_sequence_length + 1):
+            sequences.append(make_n_gram_sequences(x, i+1))
+            labels.append(make_labels(sequences[-1][:, -1, :]))
+
+        return torch.cat(sequences, dim=0), torch.hstack(labels)
+    
