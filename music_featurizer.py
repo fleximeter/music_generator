@@ -19,21 +19,22 @@ from fractions import Fraction
 ###################################################################################################################
 
 _LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
-_ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.5": 1, "-1.0": 2, "-0.5": 3, "0.0": 4, "0.5": 5, "1.0": 6, "1.5": 7, "2.0": 8, "None": 9}
-_PS_ENCODING = {"None": 256}
-_PITCH_CLASS_ENCODING = {"None": 24}
+# _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.5": 1, "-1.0": 2, "-0.5": 3, "0.0": 4, "0.5": 5, "1.0": 6, "1.5": 7, "2.0": 8, "None": 9}
+_ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.0": 1, "0.0": 2, "1.0": 3, "2.0": 4, "None": 5}
+_PS_ENCODING = {"None": 128}
+_PITCH_CLASS_ENCODING = {"None": 12}
 _QUARTER_LENGTH_ENCODING = {"None": 0}
-_PS_REVERSE_ENCODING = {256: "None"}
-_PITCH_CLASS_REVERSE_ENCODING = {"None": 24}
-_QUARTER_LENGTH_REVERSE_ENCODING = {"None": 0}
+_PS_REVERSE_ENCODING = {128: "None"}
+_PITCH_CLASS_REVERSE_ENCODING = {12: "None"}
+_QUARTER_LENGTH_REVERSE_ENCODING = {0: "None"}
 
-for i in range(256):
-    _PS_ENCODING[str(i/2)] = i 
-    _PS_REVERSE_ENCODING[i] = str(i/2)
+for i in range(128):
+    _PS_ENCODING[str(float(i))] = i 
+    _PS_REVERSE_ENCODING[i] = str(float(i))
 
-for i in range(24):
-    _PITCH_CLASS_ENCODING[str(i/2)] = i 
-    _PITCH_CLASS_REVERSE_ENCODING[i] = str(i/2)
+for i in range(12):
+    _PITCH_CLASS_ENCODING[str(float(i))] = i 
+    _PITCH_CLASS_REVERSE_ENCODING[i] = str(float(i))
 
 j = 1
 

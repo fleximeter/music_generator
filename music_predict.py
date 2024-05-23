@@ -45,11 +45,11 @@ def predict_next_note(model, current_note, hidden):
 
 
 if __name__ == "__main__":
-    PATH = "data\\prompt1.musicxml"
+    PATH = "data\\prompt3.musicxml"
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
-    HIDDEN_SIZE = 1024
-    NUM_LAYERS = 8
+    HIDDEN_SIZE = 512
+    NUM_LAYERS = 4
     TEMPO_DICT = {1: 100}
     
     # Predict only for the top staff
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     
     # Load the model from file
     model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS)
-    model.load_state_dict(torch.load("music_sequencer.pth"))
+    model.load_state_dict(torch.load("music_sequencer_1.pth"))
     
     # Predict the next N notes
     NOTES_TO_PREDICT = 10
