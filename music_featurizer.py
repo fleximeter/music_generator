@@ -362,5 +362,7 @@ class MusicXMLDataSet(Dataset):
             sequences.append(make_n_gram_sequences(x, i+1))
             labels.append(make_labels(sequences[-1][:, -1, :]))
 
+        print(sequences)
+
         return torch.cat(sequences, dim=0), torch.hstack(labels)
     
