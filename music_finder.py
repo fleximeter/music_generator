@@ -1,7 +1,7 @@
 """
 File: music_finder.py
 
-Finds MusicXML files and prepares them for training
+This module finds MusicXML files and prepares them for training.
 """
 
 import music_featurizer
