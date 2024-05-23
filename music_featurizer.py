@@ -13,6 +13,7 @@ import xml_gen
 import numpy as np
 from fractions import Fraction
 from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
 
 
 ###################################################################################################################
@@ -186,45 +187,41 @@ def load_data(staff, tempo_map):
     return dataset
 
 
-def make_n_gram_sequences(tokenized_dataset, n, device="cpu"):
+def make_n_gram_sequences(tokenized_dataset, n):
     """
     Makes N-gram sequences from a tokenized dataset
     :param tokenized_dataset: The tokenized dataset
     :param n: The length of the n-grams
-    :param device: The device on which to initialize the tensors (cpu, cuda, mps)
     :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
     X dimension 1 is the N-gram
     X dimension 2 is each entry in the N-gram
     X dimension 3 is the features of the entry
     """
-    x = []    
+    x = []
     for j in range(n, tokenized_dataset.shape[0] - 1):
-        # the x values are the items in the sequence, in sequential order
-        x.append(tokenized_dataset[j-n:j, :])
-    x = torch.stack(x, dim=0)    
-    return x.to(device)
+        y = []
+        for k in range(j-n, j):
+            y.append(tokenized_dataset[k, :])
+        x.append(torch.vstack(y))
+    return x
 
 
 def make_labels(x):
     """
-    Generates a label tensor for a 3D tensor of sequences. The label tensor is
-    calculated for a particular index in dimension 2 of the 3D sequences.
-    X dimension 1 is the batch length
-    X dimension 2 is the total sequence length
-    X dimension 3 is the features of individual notes in the sequence
-    
-    :param x: The 3D tensor of sequences
-    :return: y1, y2 (two 2D tensors)
+    Generates a label list for a list of sequences (2D tensors). The label is
+    calculated for a particular index in dimension 1 of the 2D tensors.
+    Dimension 1 is the batch length
+    Dimension 2 is the total sequence length
+    Dimension 3 is the features of individual notes in the sequence
+    :param x: A list of sequences
+    :return: y1, y2 (two lists of labels)
     """
-    if x.ndim == 3:
-        pitch_space = x[:, :, 0:len(_PS_ENCODING)]
-        quarter_length = x[:, :, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
-    else:
-        pitch_space = x[:, 0:len(_PS_ENCODING)]
-        quarter_length = x[:, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
-    y1 = pitch_space.argmax(dim=-1)
-    y2 = quarter_length.argmax(dim=-1)
-    return y1, y2
+    y = []
+    for sequence in x:
+        pitch_space = sequence[-1, 0:len(_PS_ENCODING)]
+        quarter_length = sequence[-1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+        y.append((pitch_space.argmax().item(), quarter_length.argmax().item()))
+    return y
 
 
 def retrieve_class_dictionary(prediction):
@@ -328,16 +325,16 @@ class MusicXMLDataSet(Dataset):
         Gets the number of entries in the dataset
         :return: The number of entries in the dataset
         """
-        return self.data.shape[0]
+        return len(self.data)
     
     def __getitem__(self, idx):
         """
         Gets the next item and label in the dataset
         :return: sample, label
         """
-        sample = self.data[idx, :, :]
+        sample = self.data[idx]
         label = self.labels[idx]
-        return sample, label
+        return sample, label[0], label[1]
     
     def _load_data(self, file_list, min_sequence_length, max_sequence_length):
         """
@@ -346,23 +343,29 @@ class MusicXMLDataSet(Dataset):
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length
         """
-        x = []
         sequences = []
         labels = []
         for file in file_list:
             score = music21.corpus.parse(file)
+
+            # Go through each staff in each score, and generate individual
+            # sequences and labels for that staff
             for i in get_staff_indices(score):
                 data = load_data(score[i], {1: 100})
                 data = tokenize(data, False)
-                x.append(data)
-        x = torch.vstack(x)
-        print(x.shape)
+                for j in range(min_sequence_length, max_sequence_length + 1):
+                    seq = make_n_gram_sequences(data, j+1)
+                    lab = make_labels(seq)
+                    sequences += [s for s in seq]
+                    labels += lab
 
-        for i in range(min_sequence_length, max_sequence_length + 1):
-            sequences.append(make_n_gram_sequences(x, i+1))
-            labels.append(make_labels(sequences[-1][:, -1, :]))
-
-        print(sequences)
-
-        return torch.cat(sequences, dim=0), torch.hstack(labels)
+        return sequences, labels
+    
+    def collate(batch):
+        sequences, targets1, targets2 = zip(*batch)
+        lengths = torch.tensor([seq.shape[0] for seq in sequences])
+        sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)
+        targets1 = torch.tensor(targets1)
+        targets2 = torch.tensor(targets2)
+        return sequences_padded, targets1, targets2, lengths
     
