@@ -34,6 +34,9 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
     for epoch in range(num_epochs):        
         # Predict sequences of different lengths. Each time the outer loop runs,
         # the sequence length will be different.
+
+        avg_loss = 0
+        num_batches = 0
         for x, y1, y2, lengths in dataloader:
             optimizer.zero_grad()
             x = x.to(device)
@@ -47,12 +50,14 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
             loss_pitch_space = loss_fn_pitch_space(output[0], y1)
             loss_quarter_length = loss_fn_quarter_length(output[1], y2)
             total_loss = loss_pitch_space + loss_quarter_length
+            avg_loss += total_loss.item()
+            num_batches += 1
             total_loss.backward()
             optimizer.step()
         
         # Output status
         if epoch % status_num == status_num - 1:
-            print(f"Epoch {epoch+1:<4} | loss: {round(total_loss.item(), 8):<12} | time: {datetime.datetime.now()}")
+            print(f"Epoch {epoch+1:<4} | loss: {round(avg_loss / num_batches, 8):<12} | time: {datetime.datetime.now()}")
 
         if epoch % save_every == save_every - 1:
             torch.save(model.state_dict(), file)
@@ -64,7 +69,7 @@ if __name__ == "__main__":
     TRAINING_SEQUENCE_MIN_LENGTH = 2
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
-    HIDDEN_SIZE = 512
+    HIDDEN_SIZE = 1024
     NUM_LAYERS = 4
     LEARNING_RATE = 0.001
     BATCH_SIZE = 100
@@ -87,10 +92,10 @@ if __name__ == "__main__":
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 100
     print(f"Training for {NUM_EPOCHS} epochs...")
     train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, dataloader, 
-                    NUM_EPOCHS, 10, 100, "music_sequencer_1.pth", device=device)
+                    NUM_EPOCHS, 10, 50, "music_sequencer_1.pth", device=device)
     
     # Save the model state
     # torch.save(model.state_dict(), "music_sequencer.pth")

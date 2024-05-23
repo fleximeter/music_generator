@@ -36,7 +36,7 @@ class LSTMMusic(nn.Module):
         self.device = device
 
     def forward(self, x, lengths, hidden_states):
-        packed_input = pack_padded_sequence(x, lengths, batch_first=True, enforce_sorted=False)
+        packed_input = pack_padded_sequence(x, lengths, batch_first=True)
         packed_output, hidden_states = self.lstm(packed_input, hidden_states)
         output, _ = pad_packed_sequence(packed_output, batch_first=True)
         idx = (lengths - 1).view(-1, 1, 1).expand(output.size(0), 1, output.size(2)).to(self.device)
@@ -52,3 +52,9 @@ class LSTMMusic(nn.Module):
         :param device: The device (cpu, cuda, mps)
         """
         return (torch.zeros((self.num_layers, batch_size, self.hidden_size), device=device), torch.zeros((self.num_layers, batch_size, self.hidden_size), device=device))
+
+    def predict(self, x, hidden_states):
+        output, hidden_states = self.lstm(x, hidden_states)
+        output_pitch_space = self.output_pitch_space(output[0, -1, :])
+        output_quarter_length = self.output_quarter_length(output[0, -1, :])
+        return (output_pitch_space.argmax().item(), output_quarter_length.argmax().item()), hidden_states

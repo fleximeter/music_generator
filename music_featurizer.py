@@ -362,6 +362,7 @@ class MusicXMLDataSet(Dataset):
         return sequences, labels
     
     def collate(batch):
+        batch.sort(key=lambda x: len(x[0]), reverse=True)
         sequences, targets1, targets2 = zip(*batch)
         lengths = torch.tensor([seq.shape[0] for seq in sequences])
         sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)

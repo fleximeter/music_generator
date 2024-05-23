@@ -18,12 +18,8 @@ def predict_from_sequence(model, sequence):
     :param sequence: The tokenized sequence of notes
     :return: The prediction as a MIDI note number, and the hidden states as a tuple
     """
-    prediction, hidden = model(sequence, model.init_hidden())
-    prediction_pitch_space = torch.reshape(prediction[0], (prediction[0].size()))
-    prediction_quarter_length = torch.reshape(prediction[1], (prediction[1].size()))
-    prediction_idx_pitch_space = prediction_pitch_space.argmax().item()
-    prediction_idx_quarter_length = prediction_quarter_length.argmax().item()
-    predicted_note = music_featurizer.retrieve_class_dictionary((prediction_idx_pitch_space, prediction_idx_quarter_length))
+    prediction, hidden = model.predict(sequence, model.init_hidden())
+    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0], prediction[1]))
     return predicted_note, hidden
 
 
@@ -35,20 +31,16 @@ def predict_next_note(model, current_note, hidden):
     :param hidden: The hidden states
     :return: The prediction as a MIDI note number
     """
-    prediction, hidden = model(current_note, hidden)
-    prediction_pitch_space = torch.reshape(prediction[0], (prediction[0].size()))
-    prediction_quarter_length = torch.reshape(prediction[1], (prediction[1].size()))
-    prediction_idx_pitch_space = prediction_pitch_space.argmax().item()
-    prediction_idx_quarter_length = prediction_quarter_length.argmax().item()
-    predicted_note = music_featurizer.retrieve_class_dictionary((prediction_idx_pitch_space, prediction_idx_quarter_length))
+    prediction, hidden = model.predict(current_note, hidden)
+    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0], prediction[1]))
     return predicted_note, hidden
 
 
 if __name__ == "__main__":
-    PATH = "data\\prompt3.musicxml"
+    PATH = "data\\prompt4.musicxml"
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
-    HIDDEN_SIZE = 512
+    HIDDEN_SIZE = 1024
     NUM_LAYERS = 4
     TEMPO_DICT = {1: 100}
     
