@@ -13,8 +13,6 @@ import music21
 import numpy as np
 import xml.etree.ElementTree
 
-from pctheory import pitch
-
 
 def add_item(part, item, measure_no, offset=0):
     """
@@ -193,19 +191,6 @@ def add_measures(score, num=10, start_num=1, key=None, meter=None, initial_offse
                     initial_offset += duration
 
 
-def cleanup_semi_closed(chord):
-    """
-    Cleans up music21 semiclosed positions
-    :param chord:
-    :return:
-    """
-    for item in chord.pitches:
-        if item.name == "E#" or item.name == "B#" or item.name == "C-" or item.name == "F-":
-            item.midi += 12
-        elif item.accidental.name == "double-sharp" or item.accidental.name == "double-flat":
-            item.midi += 12
-
-
 def create_score(title="Score", composer="Jeff Martin"):
     """
     Creates a score
@@ -217,29 +202,6 @@ def create_score(title="Score", composer="Jeff Martin"):
     s.insert(0, music21.metadata.Metadata())
     s.metadata.title = title
     s.metadata.composer = composer
-    return s
-
-
-def create_score_piano(title="Score", composer="Jeff Martin", num_measures: int=10, key=None, time_signature="4/4"):
-    """
-    Creates a piano score. This allows you to get started easily.
-    :param title: The title of the score
-    :param composer: The composer name
-    :param num_measures: The number of measures to add
-    :param key: The key to use (if None, will be C)
-    :param time_signature: The time signature to use
-    :return: A piano score
-    """
-    s = music21.stream.Score()
-    s.insert(0, music21.metadata.Metadata())
-    s.metadata.title = title
-    s.metadata.composer = composer
-    add_instrument_multi(s, "Piano", "Pno.", 2)
-    if key is None:
-        key = 0
-    add_measures(s, num_measures, 1, key, time_signature)
-    add_item(s[1], music21.clef.TrebleClef(), 1)
-    add_item(s[2], music21.clef.BassClef(), 1)
     return s
 
 
@@ -277,37 +239,15 @@ def make_music21_list(items, durations):
                     m_list.append(music21.note.Rest(current_duration))
                 elif type(current_item[0]) == int or type(current_item[0]) == float:
                     m_list.append(music21.chord.Chord(current_item, quarterLength=current_duration))
-                elif type(current_item[0]) == pitch.Pitch:
-                    m_list.append(music21.chord.Chord([music21.pitch.Pitch(p.p / (p.mod / 12) + 60) for p in current_item], quarterLength=current_duration))
-            
+                
+            # Handles notes
             elif type(current_item) == float or type(current_item) == int:
                 if np.isneginf(current_item):
                     m_list.append(music21.note.Rest(quarterLength=current_duration))
                 else:
                     m_list.append(music21.note.Note(current_item, quarterLength=current_duration))
             
-            elif type(current_item) == pitch.Pitch:
-                m_list.append(music21.note.Note(music21.pitch.Pitch(items[i].p / (items[i].mod / 12) + 60), quarterLength=current_duration))
     return m_list
-
-
-def make_semi_closed(chord):
-    """
-    Makes a chord semi-closed and cleans up the notation. This is useful if you made 
-    a chord directly from a PitchClass set without adjusting the spacing. It uses
-    the music21 semiClosedPosition algorithm to space the chord, and then cleans up
-    some common mistakes this algorithm makes with accidentals.
-    :param chord: A chord
-    :return: A semi-closed position rendering
-    """
-    chord.semiClosedPosition(inPlace=True)
-    for item in chord.pitches:
-        if item.name == "E#" or item.name == "B#" or item.name == "C-" or item.name == "F-":
-            item.midi += 12
-        elif item.accidental.name == "double-sharp" or item.accidental.name == "double-flat":
-            item.midi += 12
-        if item.midi > 84:
-            item.midi -= 12
 
 
 def remove_empty_measures(score):
@@ -336,45 +276,3 @@ def remove_empty_measures(score):
                         del item[i]
                         i -= 1
                 i += 1
-    
-
-def split_pset_for_grand_staff(chord):
-    """
-    Splits a Pitch set for distribution across a grand staff
-    :param chord: A set or list of pitches
-    :return: Two lists of pitches, one for each staff. The first list is for the top staff,
-    and the second list is for the bottom staff.
-    """
-    bottom_staff = []
-    top_staff = []
-    for pitch in chord:
-        if pitch.p < 0:
-            bottom_staff.append(pitch)
-        else:
-            top_staff.append(pitch)
-    return top_staff, bottom_staff
-
-
-def test():
-    """
-    Tests the xml_gen code
-    :return:
-    """
-    s = create_score()
-    add_instrument_multi(s, "Piano", "Pno.", 2, "brace", True)
-    add_measures(s, 5, 0, 3, "3/4", 1, 1)
-    add_item(s[1], music21.clef.TrebleClef(), 0, 0)
-    add_item(s[2], music21.clef.BassClef(), 0, 0)
-    s[1][0].append(music21.note.Note("C#4", offset=2, quarterLength=1))
-    s[1][1].append(music21.note.Note("D4", offset=0, quarterLength=1))
-    s[1][1].append(music21.note.Note("C#4", offset=1, quarterLength=1))
-    s[1][1].append(music21.note.Note("F#4", offset=2, quarterLength=1))
-    s[1][2].append(music21.note.Note("A4", offset=0, quarterLength=1))
-    s[1][2].append(music21.note.Note("E4", offset=1, quarterLength=1))
-    s[1][2].append(music21.note.Note("B3", offset=2, quarterLength=1))
-    s[1][3].append(music21.note.Note("G#4", offset=0, quarterLength=1))
-    s[1][3].append(music21.note.Note("F#4", offset=1, quarterLength=1))
-    s[1][3].append(music21.note.Note("E4", offset=2, quarterLength=1))
-    s[1][4].append(music21.note.Note("C#4", offset=0, quarterLength=2))
-
-    s.show()

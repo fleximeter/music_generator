@@ -2,7 +2,8 @@
 File: music_featurizer.py
 
 This module has featurization functions for preparing data to run through the model,
-and for postprocessing generated data.
+and for postprocessing generated data. It also has a dataset class for storing
+sequences.
 """
 
 import music21
