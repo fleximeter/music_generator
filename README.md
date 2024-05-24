@@ -1,7 +1,7 @@
 # Music Generator
 
 ## About
-This repository is a generative AI system for producing the next note in a sequence of notes. It makes melodies. It can train models on a collection of MusicXML files, including music21 corpuses. It is based on the PyTorch LSTM architecture, and will need considerable resources for training.
+This repository is a generative AI system for producing the next note in a sequence of notes. It makes melodies. It can train models on a collection of MusicXML files, including `music21` corpuses. It is based on the PyTorch LSTM architecture, and will need considerable resources for training.
 
 ## Resource needs
 The default training device is CUDA, and MPS is the first fallback, with a CPU as the last-level default. When training, the estimated time remaining is output, which will help you determine if you are making your computer do too much work.

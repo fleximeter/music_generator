@@ -49,33 +49,52 @@ def predict_next_note(model, current_note, hidden, training_sequence_max_length)
 
 
 if __name__ == "__main__":
-    PATH = "./data/prompt3.musicxml"
-    FILE_NAME = "./data/model.json"
-    TEMPO_DICT = {1: 100}
+    #######################################################################################
+    # YOU WILL NEED TO EDIT THIS MANUALLY
+    #######################################################################################
+
+    MUSICXML_PROMPT_FILE = "./data/prompt3.musicxml"  # Only the top staff will be considered
+    MODEL_METADATA_FILE = "./data/model.json"
     NOTES_TO_PREDICT = 10
+
+    #######################################################################################
+    # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
+    #######################################################################################
     
     # Load the model information
     model_data = None
-    with open(FILE_NAME, "r") as model_json_file:
-        model_data = json.loads(model_json_file.read())
-    
-    # Predict only for the top staff
-    score = music21.converter.parse(PATH)
-    data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]], TEMPO_DICT)
-    tokenized_data = music_featurizer.tokenize(data)
-    
-    # Load the model state dictionary from file
-    model = music_generator.LSTMMusic(model_data["num_features"], model_data["output_size_pc"], model_data["output_size_octave"], 
-                                      model_data["output_size_quarter_length"], model_data["hidden_size"], 
-                                      model_data["num_layers"])
-    model.load_state_dict(torch.load(model_data["state_dict"]))
-    
-    # Predict the next N notes
-    next_note, hidden = predict_from_sequence(model, tokenized_data, model_data["training_sequence_max_length"])
-    for i in range(NOTES_TO_PREDICT):
-        data.append(next_note)
-        next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden, model_data["training_sequence_max_length"])
+    abort = False
 
-    # Turn the data into a score
-    score = music_featurizer.unload_data(data)
-    score.show()
+    try:
+        with open(MODEL_METADATA_FILE, "r") as model_json_file:
+            model_data = json.loads(model_json_file.read())
+    except FileNotFoundError as e:
+        abort = True
+        print("ERROR: Could not open the model metadata file. Aborting.")
+    
+    try:
+        score = music21.converter.parse(MUSICXML_PROMPT_FILE)
+    except Exception as e:
+        abort = True
+        print("ERROR: Could not read the Music XML prompt file. Aborting.")
+
+    if not abort:
+        # Predict only for the top staff
+        data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]])
+        tokenized_data = music_featurizer.tokenize(data)
+        
+        # Load the model state dictionary from file
+        model = music_generator.LSTMMusic(model_data["num_features"], model_data["output_size_pc"], model_data["output_size_octave"], 
+                                        model_data["output_size_quarter_length"], model_data["hidden_size"], 
+                                        model_data["num_layers"])
+        model.load_state_dict(torch.load(model_data["state_dict"]))
+        
+        # Predict the next N notes
+        next_note, hidden = predict_from_sequence(model, tokenized_data, model_data["training_sequence_max_length"])
+        for i in range(NOTES_TO_PREDICT):
+            data.append(next_note)
+            next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden, model_data["training_sequence_max_length"])
+
+        # Turn the data into a score
+        score = music_featurizer.unload_data(data)
+        score.show()

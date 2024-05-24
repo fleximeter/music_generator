@@ -22,7 +22,6 @@ from torch.nn.utils.rnn import pad_sequence
 ###################################################################################################################
 
 _LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
-# _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.5": 1, "-1.0": 2, "-0.5": 3, "0.0": 4, "0.5": 5, "1.0": 6, "1.5": 7, "2.0": 8, "None": 9}
 _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.0": 1, "0.0": 2, "1.0": 3, "2.0": 4, "None": 5}
 _PS_ENCODING = {"None": 128}
 _OCTAVE_ENCODING = {"None": 0}
@@ -121,20 +120,13 @@ def get_staff_indices(score) -> list:
     return indices
 
 
-def load_data(staff, tempo_map):
+def load_data(staff):
     """
     Loads a Music21 staff and featurizes it
     :param staff: The staff to load
-    :param tempo_map: A tempo dictionary. Keys are measure numbers, and values are quarter note tempi.
     :return: The tokenized score
     """
     dataset = []
-
-    tempo = 60
-
-    # Add BOS
-    # dataset.append({"BOS": True, "EOS": False, "ps": "None", "letter_name": "None", "accidental": "None", "pitch_class_id": "None", "quarterLength": "None", "tempo": "None", "duration": "None"})
-
     tie_status = False
     current_note = {}
 
@@ -143,11 +135,7 @@ def load_data(staff, tempo_map):
         if type(measure) == music21.stream.Measure:
             for item in measure:
                 if type(item) == music21.note.Note:
-                    if item.measureNumber in tempo_map:
-                        tempo = tempo_map[item.measureNumber]
                     if not tie_status:
-                        current_note["BOS"] = False                                            # Beginning of part ("sentence")
-                        current_note["EOS"] = False                                            # End of part ("sentence")
                         current_note["ps"] = item.pitch.ps                                     # MIDI number (symbolic x257)
                         current_note["octave"] = item.pitch.octave                             # Octave number (symbolic)
                         current_note["letter_name"] = item.pitch.step                          # letter name (C, D, E, ...) (symbolic x8)
@@ -156,8 +144,6 @@ def load_data(staff, tempo_map):
                         current_note["accidental"] = item.pitch.accidental.alter if item.pitch.accidental is not None else 0.0
                         current_note["pitch_class_id"] = float(item.pitch.pitchClass)          # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                         current_note["quarterLength"] = item.duration.quarterLength            # duration in quarter notes (symbolic)
-                        current_note["tempo"] = tempo                                          # tempo (number)
-                        current_note["duration"] = 60 / tempo * current_note["quarterLength"]  # duration in seconds (number)
 
                         if item.tie is not None and item.tie.type in ["continue", "stop"]:
                             tie_status = True
@@ -167,31 +153,21 @@ def load_data(staff, tempo_map):
                         
                     else:
                         current_note["quarterLength"] += item.duration.quarterLength
-                        current_note["duration"] += 60 / tempo * item.duration.quarterLength
                         if item.tie is None or item.tie.type != "continue":
                             tie_status = False
                             dataset.append(current_note)
                             current_note = {}
 
                 if type(item) == music21.note.Rest:
-                    if item.measureNumber in tempo_map:
-                        tempo = tempo_map[item.measureNumber]
                     tie_status = False
-                    current_note["BOS"] = False                                            # Beginning of part ("sentence")
-                    current_note["EOS"] = False                                            # End of part ("sentence")
                     current_note["ps"] = "None"                                            # MIDI number (symbolic x257)
                     current_note["octave"] = "None"                                        # MIDI number (symbolic x257)
                     current_note["letter_name"] = "None"                                   # letter name (C, D, E, ...) (symbolic x8)
                     current_note["accidental"] = "None"                                    # accidental name ("sharp", etc.) (symbolic)
                     current_note["pitch_class_id"] = "None"                                # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                     current_note["quarterLength"] = item.duration.quarterLength            # duration in quarter notes (symbolic)
-                    current_note["tempo"] = tempo                                          # tempo (number)
-                    current_note["duration"] = 60 / tempo * current_note["quarterLength"]  # duration in seconds (number)
                     dataset.append(current_note)
                     current_note = {}
-            
-    # Add EOS
-    # dataset.append({"BOS": False, "EOS": True, "ps": "None", "letter_name": "None", "accidental": "None", "pitch_class_id": "None", "quarterLength": "None", "tempo": "None", "duration": "None"})
 
     return dataset
 
@@ -260,8 +236,6 @@ def retrieve_class_dictionary(prediction):
         "ps": ps,
         "octave": int(octave),
         "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[2]]),
-        "BOS": False,
-        "EOS": False,
         "letter_name": letter_name,
         "accidental": accidental_alter,
         "pitch_class_id": pc,
@@ -270,7 +244,8 @@ def retrieve_class_dictionary(prediction):
 
 def tokenize(dataset, batched=True):
     """
-    Tokenize a dataset. You can use this for making predictions if you want.
+    Tokenize a dataset in preparation for running it through a model.
+    You can use this for making predictions if you want.
     :param dataset: The dataset to tokenize
     :param batched: Whether or not the data is expected to be in batched 
     format (3D) or unbatched format (2D). If you will be piping this data 
@@ -322,11 +297,18 @@ def unload_data(dataset, time_signature="3/4"):
 
 
 class MusicXMLDataSet(Dataset):
+    """
+    Makes a dataset of sequenced notes based on a music XML corpus. This dataset
+    will make sequences of notes and labels for the next note in the sequence,
+    for generative training. It will exhaustively make sequences between a specified
+    minimum sequence length and maximum sequence length, and these sequences should
+    be provided to a DataLoader in shuffled fashion. Because the sequence lengths
+    vary, it is necessary to provide a collate function to the DataLoader, and a
+    collate function is provided as a static function in this class.
+    """
     def __init__(self, file_list, min_sequence_length, max_sequence_length):
         """
-        Makes a dataset of sequenced notes based on a music XML corpus. This dataset
-        will make sequences of notes and labels for the next note in the sequence,
-        for generative training.
+        Makes a MusicXMLDataSet
         :param file_list: A list of MusicXML files to turn into a dataset
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length

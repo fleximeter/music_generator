@@ -94,6 +94,10 @@ def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, o
 
 
 if __name__ == "__main__":
+    #######################################################################################
+    # YOU WILL NEED TO EDIT THIS MANUALLY
+    #######################################################################################
+    
     PATH = "./data/train"            # The path to the training corpus
     FILE_NAME = "./data/model.json"  # The path to the model metadata JSON file
     RETRAIN = False                  # Whether or not to continue training the same model
@@ -117,13 +121,18 @@ if __name__ == "__main__":
     with open(FILE_NAME, "w") as model_json_file:
         model_json_file.write(json.dumps(model_metadata))
 
+    # Get the corpus and prepare it as a dataset
+    # files = music_finder.prepare_directory(PATH, device)
+    files = music_finder.get_m21_corpus('bach')
+    
+    #######################################################################################
+    # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
+    #######################################################################################
+    
     # Prefer CUDA if available, otherwise MPS (if on Apple), or CPU as a last-level default
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    # Get the corpus and prepare it as a dataset
-    # files = music_finder.prepare_directory(PATH, device)
-    files = music_finder.get_m21_corpus('bach')
     dataset = music_featurizer.MusicXMLDataSet(files, model_metadata["training_sequence_min_length"], 
                                                model_metadata["training_sequence_max_length"])
     dataloader = DataLoader(dataset, model_metadata["batch_size"], True, collate_fn=music_featurizer.MusicXMLDataSet.collate, num_workers=8)
