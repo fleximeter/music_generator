@@ -14,6 +14,6 @@ To make predictions, you run the `music_predict.py` program. You will need to sp
 
 ## Dependencies
 You will need to install the following packages to use this repository:
-`music21`, `numpy`, `pytorch`, `pytorch-cuda` (if you are running on CUDA), `regex`
+`music21`, `numpy`, `pytorch`, `pytorch-cuda` (if you are running on CUDA), `regex`, `sendgrid` (for sending training status updates)
 
-To install on a Python virtualenv, run `pip install music21 numpy pytorch pytorch-cuda regex`
+To install on a Python virtualenv, run `pip install music21 numpy pytorch pytorch-cuda regex sendgrid`

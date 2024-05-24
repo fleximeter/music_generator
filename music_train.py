@@ -14,11 +14,13 @@ import music_generator
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import sendgrid
+import sendgrid.helpers.mail as mail
 from torch.utils.data import DataLoader
 
 
 def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, optimizer, dataloader, 
-                    num_epochs, status_interval, save_interval, model_state_file, device="cpu"):
+                    num_epochs, status_interval, save_interval, model_state_file, device="cpu", sendgrid_api_data=None):
     """
     Trains the model. This training function expects a DataLoader which will feed it batches
     of sequences in randomized order. The DataLoader takes care of serving up labels as well.
@@ -36,6 +38,7 @@ def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, o
     :param save_interval: Save to disk every N epochs
     :param model_state_file: The file name (for saving to disk)
     :param device: The device that is being used for the hidden matrices
+    :param sendgrid_api_data: The Sendgrid API information if you want to send status update emails
     """
 
     t = datetime.datetime.now()
@@ -72,21 +75,42 @@ def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, o
             total_loss.backward()
             optimizer.step()
         
-        # Output status. The status consists of the epoch number, average loss, epoch completion
+        # Generate status. The status consists of the epoch number, average loss, epoch completion
         # time, epoch duration (MM:SS), and estimated time remaining (HH:MM:SS).
-        if epoch % status_interval == status_interval - 1:
-            time_new = datetime.datetime.now()
-            delta = time_new - t
-            total_time += delta
-            t = time_new
-            seconds_remaining = int((total_time.seconds / (epoch + 1)) * (num_epochs - epoch - 1))
-            print("epoch {0:<4}\nloss: {1:<6} | completion time: {2} | duration (MM:SS): {3:02}:{4:02}\n"
-                  "est. time remaining (HH:MM:SS): {5:02}:{6:02}:{7:02}\n".format(
-                    epoch+1, round(total_loss_this_epoch / num_batches_this_epoch, 4), t.strftime("%m-%d %H:%M:%S"), 
-                    delta.seconds // 60, delta.seconds % 60, 
-                    seconds_remaining // (60 ** 2), seconds_remaining // 60 % 60, seconds_remaining % 60
-                )
+        time_new = datetime.datetime.now()
+        delta = time_new - t
+        total_time += delta
+        t = time_new
+        seconds_remaining = int((total_time.seconds / (epoch + 1)) * (num_epochs - epoch - 1))
+        status_message = "epoch {0:<4}\nloss: {1:<6} | completion time: {2} | epoch duration (MM:SS): {3:02}:{4:02}\n" + \
+                         "est. time remaining (HH:MM:SS): {5:02}:{6:02}:{7:02}\n"
+        status_message = status_message.format(
+                epoch+1, round(total_loss_this_epoch / num_batches_this_epoch, 4), t.strftime("%m-%d %H:%M:%S"), 
+                delta.seconds // 60, delta.seconds % 60, 
+                seconds_remaining // (60 ** 2), seconds_remaining // 60 % 60, seconds_remaining % 60
             )
+        
+        # Output status
+        if status_interval is not None and epoch % status_interval == status_interval - 1:
+            print(status_message)
+
+        # Email status update if it is the right epoch interval. Fail silently.
+        try:
+            if epoch % sendgrid_api_data["epoch_interval"] == sendgrid_api_data["epoch_interval"] - 1:
+                sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_data["api_key"])
+                message = mail.Mail(
+                    mail.Email(sendgrid_api_data["from"]),
+                    mail.To(sendgrid_api_data["to"]),
+                    "music generator status update",
+                    mail.Content(
+                        "text/plain",
+                        "{0}\n{1}\n{2}".format("Training model...", status_message, "regards,\nmusic_generator")
+                    )
+                )
+                response = sg.client.mail.send.post(request_body=message.get())
+                print("Sent message")
+        except Exception:
+            pass
 
         # Save to disk if it is the right epoch interval
         if epoch % save_interval == save_interval - 1:
@@ -100,7 +124,7 @@ if __name__ == "__main__":
     
     PATH = "./data/train"            # The path to the training corpus
     FILE_NAME = "./data/model.json"  # The path to the model metadata JSON file
-    RETRAIN = False                  # Whether or not to continue training the same model
+    RETRAIN = True                  # Whether or not to continue training the same model
     NUM_EPOCHS = 200                 # The number of epochs to train
     LEARNING_RATE = 0.001            # The model learning rate
     
@@ -120,6 +144,8 @@ if __name__ == "__main__":
     }
     with open(FILE_NAME, "w") as model_json_file:
         model_json_file.write(json.dumps(model_metadata))
+    with open("./data/sendgrid.json", "r") as sendgrid_json:
+        sendgrid_api_data = json.loads(sendgrid_json.read())
 
     # Get the corpus and prepare it as a dataset
     # files = music_finder.prepare_directory(PATH, device)
@@ -150,7 +176,11 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     # Train the model
-    print(f"Training for {NUM_EPOCHS} epochs...")
+    print(f"Training for {NUM_EPOCHS} epochs...\n")
+    # This version is if you don't want email updates
     train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, optimizer, dataloader, 
-                    NUM_EPOCHS, 1, 10, model_metadata["state_dict"], device=device)
+                    NUM_EPOCHS, 1, 10, model_metadata["state_dict"], device)
+    # This version is if you want email updates
+    # train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, optimizer, dataloader, 
+    #                 NUM_EPOCHS, 20, 10, model_metadata["state_dict"], device, sendgrid_api_data)
     
