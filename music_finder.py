@@ -1,7 +1,8 @@
 """
 File: music_finder.py
 
-This module finds MusicXML files and prepares them for training.
+This module finds MusicXML files and prepares them for training. It can find files
+in a music21 corpus or in a directory and its subfolders.
 """
 
 import music21
