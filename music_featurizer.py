@@ -346,7 +346,7 @@ class MusicXMLDataSet(Dataset):
             # Go through each staff in each score, and generate individual
             # sequences and labels for that staff
             for i in get_staff_indices(score):
-                data = load_data(score[i], {1: 100})
+                data = load_data(score[i])
                 data = tokenize(data, False)
                 for j in range(self.min_sequence_length, self.max_sequence_length + 1):
                     seq = make_n_gram_sequences(data, j+1)

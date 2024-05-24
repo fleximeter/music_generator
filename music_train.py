@@ -108,13 +108,13 @@ if __name__ == "__main__":
     model_metadata = {
         "model_name": "bach",
         "training_sequence_min_length": 2,
-        "training_sequence_max_length": 40,
-        "num_layers": 8,
-        "hidden_size": 2048,
-        "batch_size": 400,
+        "training_sequence_max_length": 20,
+        "num_layers": 4,
+        "hidden_size": 1024,
+        "batch_size": 200,
         "state_dict": "./data/music_sequencer_4.pth",
         "num_features": music_featurizer._NUM_FEATURES,
-        "output_size_pc": len(music_featurizer._PS_ENCODING),
+        "output_size_pc": len(music_featurizer._PITCH_CLASS_ENCODING),
         "output_size_octave": len(music_featurizer._OCTAVE_ENCODING),
         "output_size_quarter_length": len(music_featurizer._QUARTER_LENGTH_ENCODING)
     }
