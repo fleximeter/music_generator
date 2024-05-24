@@ -33,6 +33,7 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
     """
     # Train for N epochs
     t = datetime.datetime.now()
+    total_time = datetime.timedelta()
     for epoch in range(num_epochs):        
         # Predict sequences of different lengths. Each time the outer loop runs,
         # the sequence length will be different.
@@ -61,10 +62,13 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
         if epoch % status_num == status_num - 1:
             time_new = datetime.datetime.now()
             delta = time_new - t
+            total_time += delta
             t = time_new
-            print("epoch {0:<4} | loss: {1:<6} | completion time: {2} | duration: {3:02}:{4:02}".format(
+            time_remaining = (total_time.seconds / (epoch + 1)) * (num_epochs - epoch - 1)
+            print("epoch {0:<4} | loss: {1:<6} | completion time: {2} | duration: {3:02}:{4:02} | est. time remaining: {5:02}:{6:02}:{7:02}".format(
                 epoch+1, round(avg_loss / num_batches, 4), t.strftime("%m-%d %H:%M:%S"), 
-                delta.seconds // 60, delta.seconds % 60))
+                delta.seconds // 60, delta.seconds % 60, time_remaining // (60 ** 2), 
+                time_remaining // 60, time_remaining % 60))
 
         if epoch % save_every == save_every - 1:
             torch.save(model.state_dict(), file)
