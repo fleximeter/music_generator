@@ -12,6 +12,8 @@ import math
 import xml_gen
 import numpy as np
 from fractions import Fraction
+from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
 
 
 ###################################################################################################################
@@ -185,37 +187,41 @@ def load_data(staff, tempo_map):
     return dataset
 
 
-def make_n_gram_sequences(tokenized_dataset, n, device="cpu"):
+def make_n_gram_sequences(tokenized_dataset, n):
     """
     Makes N-gram sequences from a tokenized dataset
     :param tokenized_dataset: The tokenized dataset
     :param n: The length of the n-grams
-    :param device: The device on which to initialize the tensors (cpu, cuda, mps)
     :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
     X dimension 1 is the N-gram
     X dimension 2 is each entry in the N-gram
     X dimension 3 is the features of the entry
-    y dimension 1 is the y for the corresponding N-gram
     """
     x = []
-    y1 = []
-    y2 = []
-    
     for j in range(n, tokenized_dataset.shape[0] - 1):
-        # the x values are the items in the sequence, in sequential order
-        x.append(tokenized_dataset[j-n:j, :])
+        y = []
+        for k in range(j-n, j):
+            y.append(tokenized_dataset[k, :])
+        x.append(torch.vstack(y))
+    return x
 
-        # the y values are the PS and quarter length of the next note in the sequence
-        ps = tokenized_dataset[j+1, 0:len(_PS_ENCODING)]
-        ql = tokenized_dataset[j+1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
-        y1.append(ps.argmax())
-        y2.append(ql.argmax())
-    
-    x = torch.stack(x, dim=0)
-    y1 = torch.tensor(y1)
-    y2 = torch.tensor(y2)
-    
-    return x.to(device), (y1.to(device), y2.to(device))
+
+def make_labels(x):
+    """
+    Generates a label list for a list of sequences (2D tensors). The label is
+    calculated for a particular index in dimension 1 of the 2D tensors.
+    Dimension 1 is the batch length
+    Dimension 2 is the total sequence length
+    Dimension 3 is the features of individual notes in the sequence
+    :param x: A list of sequences
+    :return: y1, y2 (two lists of labels)
+    """
+    y = []
+    for sequence in x:
+        pitch_space = sequence[-1, 0:len(_PS_ENCODING)]
+        quarter_length = sequence[-1, len(_PS_ENCODING):len(_PS_ENCODING) + len(_QUARTER_LENGTH_ENCODING)]
+        y.append((pitch_space.argmax().item(), quarter_length.argmax().item()))
+    return y
 
 
 def retrieve_class_dictionary(prediction):
@@ -300,3 +306,92 @@ def unload_data(dataset, time_signature="3/4"):
     notes_m21 = xml_gen.make_music21_list(notes, rhythms)
     xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]))
     return score
+
+
+class MusicXMLDataSet(Dataset):
+    def __init__(self, file_list, min_sequence_length, max_sequence_length):
+        """
+        Makes a dataset of sequenced notes based on a music XML corpus. This dataset
+        will make sequences of notes and labels for the next note in the sequence,
+        for generative training.
+        :param file_list: A list of MusicXML files to turn into a dataset
+        :param min_sequence_length: The minimum sequence length
+        :param max_sequence_length: The maximum sequence length
+        """
+        self.min_sequence_length = min_sequence_length
+        self.max_sequence_length = max_sequence_length
+        self.data, self.labels = self._load_data(file_list)
+        
+    def __len__(self):
+        """
+        Gets the number of entries in the dataset
+        :return: The number of entries in the dataset
+        """
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        """
+        Gets the next item and label in the dataset
+        :return: sample, label
+        """
+        sample = self.data[idx]
+        label = self.labels[idx]
+        return sample, label[0], label[1]
+    
+    def _load_data(self, file_list):
+        """
+        Parses each MusicXML file and generates sequences and labels from it
+        :param file_list: A list of MusicXML files to turn into a dataset
+        """
+        sequences = []
+        labels = []
+        for file in file_list:
+            score = music21.corpus.parse(file)
+
+            # Go through each staff in each score, and generate individual
+            # sequences and labels for that staff
+            for i in get_staff_indices(score):
+                data = load_data(score[i], {1: 100})
+                data = tokenize(data, False)
+                for j in range(self.min_sequence_length, self.max_sequence_length + 1):
+                    seq = make_n_gram_sequences(data, j+1)
+                    lab = make_labels(seq)
+
+                    # trim the last entry off the sequence, because it is the label
+                    sequences += [s[:-1, :] for s in seq]
+                    labels += lab
+
+        return sequences, labels
+    
+    def collate(batch):
+        """
+        Pads a batch in preparation for training. This is necessary
+        because we expect the dataloader to randomize the data, which will
+        mix sequences of different lengths. We will pad these sequences with empty
+        entries so we can run everything through the model at the same time.
+        :param batch: A batch produced by a DataLoader
+        :return: The padded sequences, labels, and sequence lengths
+        """
+        # Sort the batch in order of sequence length. This is required by the pack_padded_sequences function. 
+        batch.sort(key=lambda x: len(x[0]), reverse=True)
+        sequences, targets1, targets2 = zip(*batch)
+        lengths = torch.tensor([seq.shape[0] for seq in sequences])
+        sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)
+        targets1 = torch.tensor(targets1)
+        targets2 = torch.tensor(targets2)
+        return sequences_padded, targets1, targets2, lengths
+    
+    def prepare_prediction(sequence, max_length):
+        """
+        Prepares a sequence for prediction. This function does the padding process
+        just like the collate function, so the model behaves as expected.
+        :param sequence: The sequence to prepare
+        :param max_length: The maximum sequence length the model was trained on
+        :return: The padded sequence and a list of lengths
+        """
+        lengths = torch.tensor([sequence.shape[1]])
+        if sequence.shape[1] < max_length:
+            zeros = torch.zeros((1, max_length - sequence.shape[1], sequence.shape[2]))
+            sequence = torch.cat((sequence, zeros), dim=1)
+        return sequence, lengths
+    
