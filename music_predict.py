@@ -5,6 +5,7 @@ This module makes predictions based on an existing model that was
 saved to file.
 """
 
+import json
 import music21
 import music_featurizer
 import music_generator
@@ -42,28 +43,31 @@ def predict_next_note(model, current_note, hidden, training_sequence_max_length)
 
 if __name__ == "__main__":
     PATH = "data\\prompt3.musicxml"
+    FILE_NAME = "model.json"
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
-    HIDDEN_SIZE = 1024
-    NUM_LAYERS = 4
     TEMPO_DICT = {1: 100}
-    TRAINING_SEQUENCE_MAX_LENGTH = 20
+    
+    # Load the model information
+    model_data = None
+    with open(FILE_NAME, "r") as model_json_file:
+        model_data = json.loads(model_json_file.read())
     
     # Predict only for the top staff
     score = music21.converter.parse(PATH)
     data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]], TEMPO_DICT)
-    X = music_featurizer.tokenize(data)
+    tokenized_data = music_featurizer.tokenize(data)
     
     # Load the model from file
-    model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS)
-    model.load_state_dict(torch.load("music_sequencer_1.pth"))
+    model = music_generator.LSTMMusic(model_data["num_features"], OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, model_data["hidden_size"], model_data["num_layers"])
+    model.load_state_dict(torch.load(model_data["state_dict"]))
     
     # Predict the next N notes
     NOTES_TO_PREDICT = 10
-    next_note, hidden = predict_from_sequence(model, X, TRAINING_SEQUENCE_MAX_LENGTH)
+    next_note, hidden = predict_from_sequence(model, tokenized_data, model_data["training_sequence_max_length"])
     for i in range(NOTES_TO_PREDICT):
         data.append(next_note)
-        next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden, TRAINING_SEQUENCE_MAX_LENGTH)
+        next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden, model_data["training_sequence_max_length"])
 
     score = music_featurizer.unload_data(data)
     score.show()

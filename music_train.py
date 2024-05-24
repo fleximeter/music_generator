@@ -5,6 +5,7 @@ This module trains the music sequence generator.
 """
 
 import datetime
+import json
 import music_featurizer
 import music_finder
 import music_generator
@@ -71,37 +72,45 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
 
 if __name__ == "__main__":
     PATH = "./data/train"
-    TRAINING_SEQUENCE_MAX_LENGTH = 40
-    TRAINING_SEQUENCE_MIN_LENGTH = 2
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
-    HIDDEN_SIZE = 2048
-    NUM_LAYERS = 8
     LEARNING_RATE = 0.001
-    BATCH_SIZE = 400
+    FILE_NAME = "model.json"
+    model_data = {
+        "corpus_name": "bach",
+        "training_sequence_min_length": 2,
+        "training_sequence_max_length": 40,
+        "num_layers": 8,
+        "hidden_size": 2048,
+        "batch_size": 400,
+        "state_dict": "music_sequencer_4.pth",
+        "num_features": music_featurizer._NUM_FEATURES
+    }
 
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
     # files = music_finder.prepare_directory(PATH, device)
     files = music_finder.get_m21_corpus('bach')
-    dataset = music_featurizer.MusicXMLDataSet(files, TRAINING_SEQUENCE_MIN_LENGTH, TRAINING_SEQUENCE_MAX_LENGTH)
-    dataloader = DataLoader(dataset, BATCH_SIZE, True, collate_fn=music_featurizer.MusicXMLDataSet.collate, num_workers=8)
+    dataset = music_featurizer.MusicXMLDataSet(files, model_data["training_sequence_min_length"], 
+                                               model_data["training_sequence_max_length"])
+    dataloader = DataLoader(dataset, model_data["batch_size"], True, collate_fn=music_featurizer.MusicXMLDataSet.collate, num_workers=8)
     
     # Whether or not to continue training the same model
     RETRAIN = False
-    model = music_generator.LSTMMusic(music_featurizer._NUM_FEATURES, OUTPUT_SIZE_PITCH_SPACE, 
-                                      OUTPUT_SIZE_QUARTER_LENGTH, HIDDEN_SIZE, NUM_LAYERS, device).to(device)
+    model = music_generator.LSTMMusic(model_data["num_features"], OUTPUT_SIZE_PITCH_SPACE, 
+                                      OUTPUT_SIZE_QUARTER_LENGTH, model_data["hidden_size"], 
+                                      model_data["num_layers"], device).to(device)
     if RETRAIN:
-        model.load_state_dict(torch.load("music_sequencer_1.pth"))
+        model.load_state_dict(torch.load(model_data["state_dict"]))
     loss_fn_pitch_space = nn.CrossEntropyLoss()
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     NUM_EPOCHS = 1000
+    with open(FILE_NAME, "w") as model_json_file:
+        model_json_file.write(json.dumps(model_data))
     print(f"Training for {NUM_EPOCHS} epochs...")
     train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, dataloader, 
-                    NUM_EPOCHS, 1, 10, "music_sequencer_1.pth", device=device)
+                    NUM_EPOCHS, 1, 10, model_data["state_dict"], device=device)
     
-    # Save the model state
-    # torch.save(model.state_dict(), "music_sequencer.pth")
