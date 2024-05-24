@@ -92,10 +92,10 @@ if __name__ == "__main__":
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    NUM_EPOCHS = 100
+    NUM_EPOCHS = 50
     print(f"Training for {NUM_EPOCHS} epochs...")
     train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, dataloader, 
-                    NUM_EPOCHS, 10, 50, "music_sequencer_1.pth", device=device)
+                    NUM_EPOCHS, 1, 10, "music_sequencer_1.pth", device=device)
     
     # Save the model state
     # torch.save(model.state_dict(), "music_sequencer.pth")

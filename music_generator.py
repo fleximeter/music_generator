@@ -44,9 +44,7 @@ class LSTMMusic(nn.Module):
         # get the index of the last output
         idx = (lengths - 1).view(-1, 1, 1).expand(output.size(0), 1, output.size(2)).to(self.device)
         last_output = output.gather(1, idx).squeeze(1)
-        print(x.shape)
-        print(last_output.shape)
-
+        
         # run the last output through the model
         output_pitch_space = self.output_pitch_space(last_output)
         output_quarter_length = self.output_quarter_length(last_output)
@@ -59,9 +57,4 @@ class LSTMMusic(nn.Module):
         :param device: The device (cpu, cuda, mps)
         """
         return (torch.zeros((self.num_layers, batch_size, self.hidden_size), device=device), torch.zeros((self.num_layers, batch_size, self.hidden_size), device=device))
-
-    def predict(self, x, hidden_states):
-        output, hidden_states = self.lstm(x, hidden_states)
-        output_pitch_space = self.output_pitch_space(output[0, -1, :])
-        output_quarter_length = self.output_quarter_length(output[0, -1, :])
-        return (output_pitch_space.argmax().item(), output_quarter_length.argmax().item()), hidden_states
+    
