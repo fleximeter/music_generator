@@ -55,7 +55,7 @@ def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, o
             y1 = y1.to(device)
             y2 = y2.to(device)
             y3 = y3.to(device)
-            hidden = model.init_hidden(x.shape[0], device=device)
+            hidden = model.init_hidden(x.shape[0])
 
             # Run the current batch through the net
             output, _ = model(x, lengths, hidden)
