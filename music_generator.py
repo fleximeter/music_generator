@@ -15,23 +15,26 @@ class LSTMMusic(nn.Module):
     Dimension 2 size: Sequence length
     Dimension 3 size: Number of features
     """
-    def __init__(self, input_size, output_size_pitch_space, output_size_quarter_length, hidden_size=128, num_layers=1, device="cpu"):
+    def __init__(self, input_size, output_size_pc, output_size_octave, output_size_quarter_length, hidden_size=128, num_layers=1, device="cpu"):
         """
         Initializes the music LSTM
         :param input_size: The input size
-        :param output_size_pitch_space: The number of output categories for pitch space
+        :param output_size_pc: The number of output categories for pitch class
+        :param output_size_octave: The number of output categories for octave
         :param output_size_quarter_length: The number of output categories for quarter length
         :param hidden_size: The size of the hidden state vector
         :param num_layers: The number of layers to use
         """
         super(LSTMMusic, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-        self.output_pitch_space = nn.Linear(hidden_size, output_size_pitch_space)
+        self.output_pc = nn.Linear(hidden_size, output_size_pc)
+        self.output_octave = nn.Linear(hidden_size, output_size_octave)
         self.output_quarter_length = nn.Linear(hidden_size, output_size_quarter_length)
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.input_size = input_size
-        self.output_size_pitch_space = output_size_pitch_space
+        self.output_size_pc = output_size_pc
+        self.output_size_octave = output_size_octave
         self.output_size_quarter_length = output_size_quarter_length
         self.device = device
 
@@ -46,9 +49,10 @@ class LSTMMusic(nn.Module):
         last_output = output.gather(1, idx).squeeze(1)
         
         # run the last output through the model
-        output_pitch_space = self.output_pitch_space(last_output)
+        output_pc = self.output_pc(last_output)
+        output_octave = self.output_octave(last_output)
         output_quarter_length = self.output_quarter_length(last_output)
-        return (output_pitch_space, output_quarter_length), hidden_states
+        return (output_pc, output_octave, output_quarter_length), hidden_states
     
     def init_hidden(self, batch_size=1, device="cpu"):
         """

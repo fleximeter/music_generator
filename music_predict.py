@@ -22,7 +22,7 @@ def predict_from_sequence(model, sequence, training_sequence_max_length):
     """
     s, l = music_featurizer.MusicXMLDataSet.prepare_prediction(sequence, training_sequence_max_length)
     prediction, hidden = model(s, l, model.init_hidden())
-    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item()))
+    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item(), prediction[2].argmax().item()))
     return predicted_note, hidden
 
 
@@ -37,15 +37,13 @@ def predict_next_note(model, current_note, hidden, training_sequence_max_length)
     """
     s, l = music_featurizer.MusicXMLDataSet.prepare_prediction(current_note, training_sequence_max_length)
     prediction, hidden = model(s, l, hidden)
-    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item()))
+    predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item(), prediction[2].argmax().item()))
     return predicted_note, hidden
 
 
 if __name__ == "__main__":
-    PATH = "data\\prompt3.musicxml"
-    FILE_NAME = "model.json"
-    OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
-    OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
+    PATH = "./data/prompt3.musicxml"
+    FILE_NAME = "./data/model.json"
     TEMPO_DICT = {1: 100}
     
     # Load the model information
@@ -59,7 +57,9 @@ if __name__ == "__main__":
     tokenized_data = music_featurizer.tokenize(data)
     
     # Load the model from file
-    model = music_generator.LSTMMusic(model_data["num_features"], OUTPUT_SIZE_PITCH_SPACE, OUTPUT_SIZE_QUARTER_LENGTH, model_data["hidden_size"], model_data["num_layers"])
+    model = music_generator.LSTMMusic(model_data["num_features"], model_data["output_size_pc"], model_data["output_size_octave"], 
+                                      model_data["output_size_quarter_length"], model_data["hidden_size"], 
+                                      model_data["num_layers"])
     model.load_state_dict(torch.load(model_data["state_dict"]))
     
     # Predict the next N notes
