@@ -31,6 +31,7 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
     :param device: The device that is being used for the hidden matrices
     """
     # Train for N epochs
+    t = datetime.datetime.now()
     for epoch in range(num_epochs):        
         # Predict sequences of different lengths. Each time the outer loop runs,
         # the sequence length will be different.
@@ -57,7 +58,12 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
         
         # Output status
         if epoch % status_num == status_num - 1:
-            print(f"Epoch {epoch+1:<4} | loss: {round(avg_loss / num_batches, 8):<12} | time: {datetime.datetime.now()}")
+            time_new = datetime.datetime.now()
+            delta = time_new - t
+            t = time_new
+            print("epoch {0:<4} | loss: {1:<6} | completion time: {2} | duration: {3:02}:{4:02}".format(
+                epoch+1, round(avg_loss / num_batches, 4), t.strftime("%m-%d %H:%M:%S"), 
+                delta.seconds // 60, delta.seconds % 60))
 
         if epoch % save_every == save_every - 1:
             torch.save(model.state_dict(), file)
@@ -65,22 +71,22 @@ def train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimize
 
 if __name__ == "__main__":
     PATH = "./data/train"
-    TRAINING_SEQUENCE_MAX_LENGTH = 20
+    TRAINING_SEQUENCE_MAX_LENGTH = 40
     TRAINING_SEQUENCE_MIN_LENGTH = 2
     OUTPUT_SIZE_PITCH_SPACE = len(music_featurizer._PS_ENCODING)
     OUTPUT_SIZE_QUARTER_LENGTH = len(music_featurizer._QUARTER_LENGTH_ENCODING)
-    HIDDEN_SIZE = 1024
-    NUM_LAYERS = 4
+    HIDDEN_SIZE = 2048
+    NUM_LAYERS = 8
     LEARNING_RATE = 0.001
-    BATCH_SIZE = 100
+    BATCH_SIZE = 400
 
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    # X = music_finder.prepare_directory(PATH, device)
+    # files = music_finder.prepare_directory(PATH, device)
     files = music_finder.get_m21_corpus('bach')
-    dataset = music_featurizer.MusicXMLDataSet(files, 2, 20)
-    dataloader = DataLoader(dataset, BATCH_SIZE, True, collate_fn=music_featurizer.MusicXMLDataSet.collate, num_workers=4)
+    dataset = music_featurizer.MusicXMLDataSet(files, TRAINING_SEQUENCE_MIN_LENGTH, TRAINING_SEQUENCE_MAX_LENGTH)
+    dataloader = DataLoader(dataset, BATCH_SIZE, True, collate_fn=music_featurizer.MusicXMLDataSet.collate, num_workers=8)
     
     # Whether or not to continue training the same model
     RETRAIN = False
@@ -92,7 +98,7 @@ if __name__ == "__main__":
     loss_fn_quarter_length = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    NUM_EPOCHS = 50
+    NUM_EPOCHS = 1000
     print(f"Training for {NUM_EPOCHS} epochs...")
     train_sequences(model, loss_fn_pitch_space, loss_fn_quarter_length, optimizer, dataloader, 
                     NUM_EPOCHS, 1, 10, "music_sequencer_1.pth", device=device)
