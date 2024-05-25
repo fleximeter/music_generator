@@ -357,8 +357,12 @@ def unload_data(dataset):
     notes = []
     rhythms = []
     time_signature = "4/4"
+    key_signature = 0
+    first_offset = 0
     if len(dataset) > 0:
         time_signature = dataset[0]["time_signature"]
+        key_signature = dataset[0]["key_signature"]
+        first_offset = dataset[0]["beat"] - 1
     for item in dataset:
         if item["ps"] == "None":
             notes.append(-np.inf)
@@ -369,8 +373,8 @@ def unload_data(dataset):
     score = xml_gen.create_score()
     xml_gen.add_instrument(score, "Cello", "Vc.")
     if len(notes) > 0:
-        xml_gen.add_measures(score, 50, 1, 1, meter=time_signature)
-        xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]))
+        xml_gen.add_measures(score, 50, 1, key_signature, time_signature, first_offset, first_offset)
+        xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]), offset=first_offset)
         xml_gen.remove_empty_measures(score)
     return score
 

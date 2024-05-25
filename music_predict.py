@@ -55,9 +55,9 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt4.musicxml"  # Only the top staff will be considered
+    MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
     MODEL_METADATA_FILE = "./data/model5.json"
-    NOTES_TO_PREDICT = 10
+    NOTES_TO_PREDICT = 25
 
     #######################################################################################
     # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
