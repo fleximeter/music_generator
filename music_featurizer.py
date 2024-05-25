@@ -23,15 +23,19 @@ from torch.nn.utils.rnn import pad_sequence
 
 _LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
 _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.0": 1, "0.0": 2, "1.0": 3, "2.0": 4, "None": 5}
-_BEAT_ENCODING = {"None": 0}
 _PITCH_SPACE_ENCODING = {"None": 0}
 _OCTAVE_ENCODING = {"None": 0}
 _PITCH_CLASS_ENCODING = {"None": 0}
+_KEY_SIGNATURE_ENCODING = {"None": 0}
+_MODE_ENCODING = {"None": 0, "major": 1, "minor": 2}
+_BEAT_ENCODING = {"None": 0}
 _QUARTER_LENGTH_ENCODING = {"None": 0}
-_BEAT_REVERSE_ENCODING = {"None": 0}
 _PITCH_SPACE_REVERSE_ENCODING = {0: "None"}
 _OCTAVE_REVERSE_ENCODING = {0: "None"}
 _PITCH_CLASS_REVERSE_ENCODING = {0: "None"}
+_KEY_SIGNATURE_REVERSE_ENCODING = {0: "None"}
+_MODE_REVERSE_ENCODING = {0: "None", 1: "major", 2: "minor"}
+_BEAT_REVERSE_ENCODING = {0: "None"}
 _QUARTER_LENGTH_REVERSE_ENCODING = {0: "None"}
 
 ##########################################################################
@@ -53,6 +57,10 @@ for i in range(1, 12+1):
 for i in range(1, 128+1):
     _PITCH_SPACE_ENCODING[str(float(i-1))] = i 
     _PITCH_SPACE_REVERSE_ENCODING[i] = str(float(i-1))
+
+for i in range(1, 15+1):
+    _KEY_SIGNATURE_ENCODING[str(i-8)] = i 
+    _KEY_SIGNATURE_REVERSE_ENCODING[i] = str(i-8)
 
 ##########################################################################
 # Generate beat and quarter length encoding
@@ -114,7 +122,8 @@ for i in range(1, 64, 2):
 ###################################################################################################################
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
 ###################################################################################################################
-_NUM_FEATURES = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + len(_BEAT_ENCODING) + len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_ENCODING)
+_NUM_FEATURES = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + len(_BEAT_ENCODING) + \
+                len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_ENCODING)  + len(_KEY_SIGNATURE_ENCODING)  + len(_MODE_ENCODING) 
 _NUM_OUTPUTS = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
@@ -170,6 +179,8 @@ def load_data(staff):
     tie_status = False
     current_note = {}
     current_time_signature = "4/4"
+    current_key = 0
+    current_mode = "major"
 
     # We assume there are not multiple voices on this staff, and there are no chords - it's just a line
     for measure in staff:
@@ -177,6 +188,9 @@ def load_data(staff):
             for item in measure:
                 if type(item) == music21.meter.TimeSignature:
                     current_time_signature = item.ratioString
+                elif type(item) == music21.key.Key:
+                    current_key = item.sharps
+                    current_mode = item.mode
                 elif type(item) == music21.note.Note:
                     if not tie_status:
                         current_note["ps"] = item.pitch.ps                                     # MIDI number (symbolic x257)
@@ -186,6 +200,9 @@ def load_data(staff):
                         # accidental alteration (symbolic)
                         current_note["accidental"] = item.pitch.accidental.alter if item.pitch.accidental is not None else 0.0
                         current_note["pitch_class_id"] = float(item.pitch.pitchClass)          # pitch class number 0, 1, 2, ... 11 (symbolic x13)
+                        current_note["key_signature"] = current_key                            # key signature
+                        current_note["mode"] = current_mode                                    # mode
+
                         current_note["quarterLength"] = item.duration.quarterLength            # duration in quarter notes (symbolic)
                         current_note["beat"] = item.beat                                       # beat (symbolic)
                         current_note["time_signature"] = current_time_signature                # time signature (symbolic)
@@ -210,6 +227,8 @@ def load_data(staff):
                     current_note["letter_name"] = "None"                         # letter name (C, D, E, ...) (symbolic x8)
                     current_note["accidental"] = "None"                          # accidental name ("sharp", etc.) (symbolic)
                     current_note["pitch_class_id"] = "None"                      # pitch class number 0, 1, 2, ... 11 (symbolic x13)
+                    current_note["key_signature"] = current_key                  # key signature
+                    current_note["mode"] = current_mode                          # mode
                     current_note["quarterLength"] = item.duration.quarterLength  # duration in quarter notes (symbolic)
                     current_note["beat"] = item.beat                             # beat in quarter notes (symbolic)
                     current_note["time_signature"] = current_time_signature      # time signature (symbolic)
@@ -287,7 +306,10 @@ def make_one_hot_features(dataset, batched=True):
             beat_one_hot = F.one_hot(torch.tensor(_BEAT_ENCODING[str(Fraction(instance["beat"]))]), len(_BEAT_ENCODING)).float()
         letter_one_hot = F.one_hot(torch.tensor(_LETTER_NAME_ENCODING[str(instance["letter_name"])]), len(_LETTER_NAME_ENCODING)).float()
         accidental_one_hot = F.one_hot(torch.tensor(_ACCIDENTAL_ENCODING[str(instance["accidental"])]), len(_ACCIDENTAL_ENCODING)).float()
-        instances.append(torch.hstack((pitch_space_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, letter_one_hot, accidental_one_hot)))
+        key_signature_one_hot = F.one_hot(torch.tensor(_KEY_SIGNATURE_ENCODING[str(instance["key_signature"])]), len(_KEY_SIGNATURE_ENCODING)).float()
+        mode_one_hot = F.one_hot(torch.tensor(_MODE_ENCODING[str(instance["mode"])]), len(_MODE_ENCODING)).float()
+        instances.append(torch.hstack((pitch_space_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, 
+                                       letter_one_hot, accidental_one_hot, key_signature_one_hot, mode_one_hot)))
 
     instances = torch.vstack(instances)
     if batched:

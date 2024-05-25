@@ -94,6 +94,8 @@ if __name__ == "__main__":
         next_note, hidden = predict_from_sequence(model, tokenized_data, model_data["training_sequence_max_length"])
         for i in range(NOTES_TO_PREDICT):
             # get the note time signature and beat based on the previous note
+            next_note["key_signature"] = data[-1]["key_signature"] 
+            next_note["mode"] = data[-1]["mode"]
             next_note["time_signature"] = data[-1]["time_signature"]
             next_note["beat"] = music_featurizer.calculate_next_beat(data[-1])
             data.append(next_note)
