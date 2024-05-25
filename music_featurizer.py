@@ -155,12 +155,15 @@ def load_data(staff):
     dataset = []
     tie_status = False
     current_note = {}
+    current_time_signature = "4/4"
 
     # We assume there are not multiple voices on this staff, and there are no chords - it's just a line
     for measure in staff:
         if type(measure) == music21.stream.Measure:
             for item in measure:
-                if type(item) == music21.note.Note:
+                if type(item) == music21.meter.TimeSignature:
+                    current_time_signature = item.ratioString
+                elif type(item) == music21.note.Note:
                     if not tie_status:
                         current_note["ps"] = item.pitch.ps                                     # MIDI number (symbolic x257)
                         current_note["octave"] = item.pitch.octave                             # Octave number (symbolic)
@@ -171,6 +174,7 @@ def load_data(staff):
                         current_note["pitch_class_id"] = float(item.pitch.pitchClass)          # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                         current_note["quarterLength"] = item.duration.quarterLength            # duration in quarter notes (symbolic)
                         current_note["beat"] = item.beat                                       # beat (symbolic)
+                        current_note["time_signature"] = current_time_signature                # time signature (symbolic)
 
                         if item.tie is not None and item.tie.type in ["continue", "stop"]:
                             tie_status = True
@@ -185,7 +189,7 @@ def load_data(staff):
                             dataset.append(current_note)
                             current_note = {}
 
-                if type(item) == music21.note.Rest:
+                elif type(item) == music21.note.Rest:
                     tie_status = False
                     current_note["ps"] = "None"                                  # MIDI number (symbolic x257)
                     current_note["octave"] = "None"                              # MIDI number (symbolic x257)
@@ -194,6 +198,7 @@ def load_data(staff):
                     current_note["pitch_class_id"] = "None"                      # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                     current_note["quarterLength"] = item.duration.quarterLength  # duration in quarter notes (symbolic)
                     current_note["beat"] = item.beat                             # beat in quarter notes (symbolic)
+                    current_note["time_signature"] = current_time_signature      # time signature (symbolic)
                     dataset.append(current_note)
                     current_note = {}
 
@@ -303,7 +308,7 @@ def make_one_hot_features(dataset, batched=True):
     return instances
 
 
-def unload_data(dataset, time_signature="3/4"):
+def unload_data(dataset):
     """
     Unloads data and turns it into a score again, in preparation for
     rendering a MusicXML file.
@@ -311,9 +316,6 @@ def unload_data(dataset, time_signature="3/4"):
     :param time_signature: The time signature to use
     :return: A music21 score
     """
-    score = xml_gen.create_score()
-    xml_gen.add_instrument(score, "Cello", "Vc.")
-    xml_gen.add_measures(score, 50, 1, 1, meter=time_signature)
     notes = []
     rhythms = []
     for item in dataset:
@@ -323,7 +325,12 @@ def unload_data(dataset, time_signature="3/4"):
             notes.append(float(item["ps"]))
         rhythms.append(float(item["quarterLength"]))
     notes_m21 = xml_gen.make_music21_list(notes, rhythms)
-    xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]))
+    score = xml_gen.create_score()
+    xml_gen.add_instrument(score, "Cello", "Vc.")
+    if len(notes) > 0:
+        xml_gen.add_measures(score, 50, 1, 1, meter=notes[0]["time_signature"])
+        xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(notes[0]["time_signature"].split('/')[0]))
+        xml_gen.remove_empty_measures(score)
     return score
 
 
