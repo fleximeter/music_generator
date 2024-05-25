@@ -94,9 +94,9 @@ _NUM_OUTPUTS = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER
 
 def convert_ps_to_note(ps: float):
     """
-    Gets the letter name of a note, its accidental, and the pitch class from a provided pitch space number
+    Gets the letter name of a note and its accidental from a provided pitch space number
     :param ps: The pitch space number
-    :return: The letter name, pitch-class id, and accidental alter value
+    :return: The letter name and accidental alter value
     """
     PC_MAP = [('C', 0), ('C', -1), ('D', 0), ('D', -1), ('E', 0), ('F', 0), ('F', -1), ('G', 0), ('G', -1), ('A', 0), ('A', -1), ('B', 0)]
     microtone, semitone = math.modf(ps)
@@ -313,6 +313,7 @@ class MusicXMLDataSet(Dataset):
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length
         """
+        super(MusicXMLDataSet, self).__init__()
         self.min_sequence_length = min_sequence_length
         self.max_sequence_length = max_sequence_length
         self.data, self.labels = self._load_data(file_list)
