@@ -124,8 +124,8 @@ if __name__ == "__main__":
     
     PATH = "./data/train"             # The path to the training corpus
     FILE_NAME = "./data/model5.json"  # The path to the model metadata JSON file
-    RETRAIN = False                   # Whether or not to continue training the same model
-    NUM_EPOCHS = 200                  # The number of epochs to train
+    RETRAIN = True                   # Whether or not to continue training the same model
+    NUM_EPOCHS = 400                  # The number of epochs to train
     LEARNING_RATE = 0.001             # The model learning rate
     
     # The model metadata - save to JSON file

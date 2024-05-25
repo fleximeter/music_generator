@@ -55,7 +55,7 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
+    MUSICXML_PROMPT_FILE = "./data/prompt4.musicxml"  # Only the top staff will be considered
     MODEL_METADATA_FILE = "./data/model5.json"
     NOTES_TO_PREDICT = 25
 
@@ -105,6 +105,6 @@ if __name__ == "__main__":
         # Turn the data into a score
         score = music_featurizer.unload_data(data)
         score.show()
-        destination_split = os.path.split(MUSICXML_PROMPT_FILE)
-        destination_file = "predicted_" + destination_split[-1]
-        xml_gen.export_to_xml(score, os.path.join(*destination_split[:-1], destination_file))
+        # destination_split = os.path.split(MUSICXML_PROMPT_FILE)
+        # destination_file = "predicted_" + destination_split[-1]
+        # xml_gen.export_to_xml(score, os.path.join(*destination_split[:-1], destination_file))

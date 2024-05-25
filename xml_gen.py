@@ -9,6 +9,8 @@ It is a copy of what is contained in the mutil library with some modifications f
 handling actual MIDI note numbers rather than Morris p-space numbers.
 """
 
+from fractions import Fraction
+import math
 import music21
 import numpy as np
 import xml.etree.ElementTree
@@ -35,7 +37,7 @@ def add_item(part, item, measure_no, offset=0):
                 stream_item.insert(index, item)
 
 
-def add_sequence(part, item_sequence, lyric_sequence=None, measure_no=1, bar_duration=4.0, offset=0):
+def add_sequence(part, item_sequence, lyric_sequence=None, measure_no=1, bar_duration=4.0):
     """
     Adds a sequence of notes or chords to a Part or PartStaff
     :param part: The Part or PartStaff
@@ -43,12 +45,11 @@ def add_sequence(part, item_sequence, lyric_sequence=None, measure_no=1, bar_dur
     :param lyric_sequence: A list of lyrics corresponding to the pitch durations. If the current index is a list, we can make multiple verses.
     :param measure_no: The measure number
     :param bar_duration: The quarter duration of the first measure
-    :param offset: The offset position of the first note (default to 0)
     :return:
     """
     m = 0                                # The current measure index
     current_bar_duration = bar_duration  # The current measure duration in quarter notes
-    current_offset = offset              # The offset for the next chord to insert
+    current_offset = 0                   # The offset for the next chord to insert
 
     # Find the starting measure index
     for i in range(len(part)):
@@ -57,59 +58,57 @@ def add_sequence(part, item_sequence, lyric_sequence=None, measure_no=1, bar_dur
                 m = i
     
     # Insert each item
-    for i in range(len(item_sequence)):
+    for i, current_item in enumerate(item_sequence):
         total_duration = item_sequence[i].duration.quarterLength      # The total duration of the chord
         remaining_duration = item_sequence[i].duration.quarterLength  # The remaining duration of the chord
 
         # Loop until the entire duration of the chord has been inserted
         while remaining_duration > 0:
             # The item to insert
-            c = None
+            new_item_to_insert = None
             
             # Get the duration of this fragment of the chord
-            duration = 0
-            if current_bar_duration - current_offset >= remaining_duration:
-                duration = remaining_duration
+            new_item_duration = 0
+            if current_bar_duration - part[m].paddingLeft - current_offset >= remaining_duration:
+                new_item_duration = remaining_duration
             else:
-                duration = current_bar_duration - current_offset
+                new_item_duration = current_bar_duration - part[m].paddingLeft - current_offset
 
-            if type(item_sequence[i]) == music21.chord.Chord:
-                # Create the chord
-                c = music21.chord.Chord(item_sequence[i].notes, quarterLength=duration)
-            elif type(item_sequence[i]) == music21.note.Note:
-                # Create the note
-                c = music21.note.Note(nameWithOctave=item_sequence[i].nameWithOctave, quarterLength=duration)
+            # CREATE NOTE, CHORD, OR REST
+            if type(current_item) == music21.chord.Chord:
+                new_item_to_insert = music21.chord.Chord(current_item.notes, quarterLength=new_item_duration)
+            elif type(current_item) == music21.note.Note:
+                new_item_to_insert = music21.note.Note(nameWithOctave=current_item.nameWithOctave, quarterLength=new_item_duration)
             else:
-                # Create the rest
-                c = music21.note.Rest(quarterLength=duration)
+                new_item_to_insert = music21.note.Rest(quarterLength=new_item_duration)
 
-            # Create ties and attach lyrics as appropriate
-            if remaining_duration == total_duration and duration < total_duration:
-                c.tie = music21.tie.Tie("start")
+            # TIES AND LYRICS: Create ties and attach lyrics as appropriate
+            if remaining_duration == total_duration and new_item_duration < total_duration:
+                new_item_to_insert.tie = music21.tie.Tie("start")
                 if lyric_sequence is not None:
                     if type(lyric_sequence[i]) == list:
-                        c.lyrics = [music21.note.Lyric(number=j, text=lyric_sequence[i][j]) for j in range(len(lyric_sequence[i]))]
+                        new_item_to_insert.lyrics = [music21.note.Lyric(number=j, text=lyric_sequence[i][j]) for j in range(len(lyric_sequence[i]))]
                     else:
-                        c.lyrics = [music21.note.Lyric(number=1, text=lyric_sequence[i])]
-            elif total_duration > remaining_duration > duration:
-                c.tie = music21.tie.Tie("continue")
-            elif total_duration > remaining_duration == duration:
-                c.tie = music21.tie.Tie("stop")
+                        new_item_to_insert.lyrics = [music21.note.Lyric(number=1, text=lyric_sequence[i])]
+            elif total_duration > remaining_duration > new_item_duration:
+                new_item_to_insert.tie = music21.tie.Tie("continue")
+            elif total_duration > remaining_duration == new_item_duration:
+                new_item_to_insert.tie = music21.tie.Tie("stop")
             else:
                 if lyric_sequence is not None:
                     if type(lyric_sequence[i]) == list:
-                        c.lyrics = [music21.note.Lyric(number=j + 1, text=lyric_sequence[i][j])
+                        new_item_to_insert.lyrics = [music21.note.Lyric(number=j + 1, text=lyric_sequence[i][j])
                                     for j in range(len(lyric_sequence[i]))]
                     else:
-                        c.lyrics = [music21.note.Lyric(number=1, text=lyric_sequence[i])]
+                        new_item_to_insert.lyrics = [music21.note.Lyric(number=1, text=lyric_sequence[i])]
 
             # Insert the chord into the current measure
-            part[m].insert(current_offset, c)
+            part[m].insert(current_offset, new_item_to_insert)
 
             # Update the offset and remaining duration
-            current_offset += duration
-            remaining_duration -= duration
-            if current_offset >= current_bar_duration:
+            current_offset += new_item_duration
+            remaining_duration -= new_item_duration
+            if current_offset >= current_bar_duration - part[m].paddingLeft:
                 m += 1
                 current_offset = 0
                 if m < len(part) and part[m].timeSignature is not None:
@@ -149,7 +148,7 @@ def add_instrument_multi(score, name, abbreviation, num_staves, symbol="brace", 
     score.append(grp)
 
 
-def add_measures(score, num=10, start_num=1, key=None, meter=None, initial_offset=0, padding_left=0, padding_right=0):
+def add_measures(score, num=10, start_num=1, key=None, meter=None, bar_duration=4.0, initial_offset=0.0, padding_left=0.0, padding_right=0.0):
     """
     Adds measures to a score
     :param score: The score
@@ -157,6 +156,7 @@ def add_measures(score, num=10, start_num=1, key=None, meter=None, initial_offse
     :param start_num: The starting measure number
     :param key: The key signature for the first measure
     :param meter: The time signature for the first measure
+    :param bar_duration: The duration for each measure
     :param initial_offset: The offset for the first measure
     :param padding_left: Makes the first measure a pickup measure. This is the number of beats to subtract.
     :param padding_right: Makes the last measure shorter. This is the number of beats to subtract.
@@ -167,28 +167,27 @@ def add_measures(score, num=10, start_num=1, key=None, meter=None, initial_offse
         if type(item) == music21.stream.Part or type(item) == music21.stream.PartStaff:
             # The first measure gets special treatment. It may be given a time signature, a key signature,
             # and may be a pickup measure.
-            m = music21.stream.Measure(number=start_num, offset=initial_offset, paddingLeft=padding_left)
+            m = music21.stream.Measure(number=start_num)
             if meter is not None:
-                ts = music21.meter.TimeSignature(meter)
-                m.insert(0, ts)
+                m.timeSignature = music21.meter.TimeSignature(meter)
+            m.paddingLeft = padding_left
             if key is not None:
                 m.insert(0, music21.key.KeySignature(key))
-            duration = m.timeSignature.duration.quarterLength
-            initial_offset += m.barDuration.quarterLength
-            item.append(m)
-
+            m.duration = music21.duration.Duration(bar_duration)
+            item.insert(initial_offset, m)
+            initial_offset += bar_duration - padding_left
+            
             # Add the remaining measures.
             for i in range(1, num):
                 # The final measure may be shorter to compensate for the pickup measure.
+                # note: previous version provided the quarterLength of the measure here, but apparently
+                # support for that has been deprecated in music21, so I removed that specification.
+                m1 = music21.stream.Measure(number=i + start_num)
+                m1.duration = music21.duration.Duration(bar_duration)
                 if i == num - 1:
-                    m1 = music21.stream.Measure(number=i + start_num, offset=initial_offset, paddingRight=padding_right)
-                    item.append(m1)
-                else:
-                    # note: previous version provided the quarterLength of the measure here, but apparently
-                    # support for that has been deprecated in music21, so I removed that specification.
-                    m1 = music21.stream.Measure(number=i + start_num, offset=initial_offset)
-                    item.append(m1)
-                    initial_offset += duration
+                    m.paddingRight = padding_right
+                item.insert(initial_offset, m1)
+                initial_offset += bar_duration
 
 
 def create_score(title="Score", composer="Jeff Martin"):
@@ -216,6 +215,20 @@ def export_to_xml(score, path):
     output = xml.etree.ElementTree.tostring(converter.parse())
     with open(path, "wb") as file:
         file.write(output)
+
+
+def fix_last_measure(score):
+    """
+    Fixes the last measure in a score. Fills empty slots with rests
+    and adds a final barline
+    :param score: The score to fix the last measure in
+    """
+    for part in score:
+        if type(part) == music21.stream.Part or type(part) == music21.stream.PartStaff:
+            for i in range(len(part) - 1, -1, -1):
+                if type(part[i]) == music21.stream.Measure:
+                    part[i].rightBarline = music21.bar.Barline("final")
+                    break
 
 
 def make_music21_list(items, durations):
