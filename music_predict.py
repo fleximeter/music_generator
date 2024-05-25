@@ -11,6 +11,7 @@ import music21
 import music_featurizer
 import music_generator
 import torch
+from fractions import Fraction
 
 
 def predict_from_sequence(model, sequence, training_sequence_max_length):
@@ -53,8 +54,8 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt3.musicxml"  # Only the top staff will be considered
-    MODEL_METADATA_FILE = "./data/model.json"
+    MUSICXML_PROMPT_FILE = "./data/prompt4.musicxml"  # Only the top staff will be considered
+    MODEL_METADATA_FILE = "./data/model5.json"
     NOTES_TO_PREDICT = 20
 
     #######################################################################################
@@ -92,6 +93,9 @@ if __name__ == "__main__":
         # Predict the next N notes
         next_note, hidden = predict_from_sequence(model, tokenized_data, model_data["training_sequence_max_length"])
         for i in range(NOTES_TO_PREDICT):
+            # get the note time signature and beat based on the previous note
+            next_note["time_signature"] = data[-1]["time_signature"]
+            next_note["beat"] = music_featurizer.calculate_next_beat(data[-1])
             data.append(next_note)
             next_note, hidden = predict_next_note(model, music_featurizer.make_one_hot_features([next_note]), hidden, model_data["training_sequence_max_length"])
 

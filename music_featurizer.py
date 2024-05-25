@@ -118,6 +118,20 @@ _NUM_FEATURES = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTE
 _NUM_OUTPUTS = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
+def calculate_next_beat(note):
+    """
+    Calculates the beat of the next note based on the time signature and beat length
+    of the current note
+    :param note: The note dictionary to calculate from
+    :return: The beat of the next note
+    """
+    time_signature_numerator = Fraction(note["time_signature"].split("/")[0])
+    beat = Fraction(note["beat"]) + Fraction(note["quarterLength"])
+    while beat > time_signature_numerator:
+        beat -= time_signature_numerator
+    return beat
+
+
 def convert_ps_to_note(ps: float):
     """
     Gets the letter name of a note and its accidental from a provided pitch space number
@@ -205,25 +219,6 @@ def load_data(staff):
     return dataset
 
 
-def make_n_gram_sequences(tokenized_dataset, n):
-    """
-    Makes N-gram sequences from a tokenized dataset
-    :param tokenized_dataset: The tokenized dataset
-    :param n: The length of the n-grams
-    :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
-    X dimension 1 is the N-gram
-    X dimension 2 is each entry in the N-gram
-    X dimension 3 is the features of the entry
-    """
-    x = []
-    for j in range(n, tokenized_dataset.shape[0] - 1):
-        y = []
-        for k in range(j-n, j):
-            y.append(tokenized_dataset[k, :])
-        x.append(torch.vstack(y))
-    return x
-
-
 def make_labels(x):
     """
     Generates a label list for a list of sequences (2D tensors). The label is
@@ -248,31 +243,23 @@ def make_labels(x):
     return y
 
 
-def retrieve_class_dictionary(prediction):
+def make_n_gram_sequences(tokenized_dataset, n):
     """
-    Retrives a predicted class's information based on its id
-    :param prediction: The prediction tuple
-    :return: The prediction dictionary
+    Makes N-gram sequences from a tokenized dataset
+    :param tokenized_dataset: The tokenized dataset
+    :param n: The length of the n-grams
+    :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
+    X dimension 1 is the N-gram
+    X dimension 2 is each entry in the N-gram
+    X dimension 3 is the features of the entry
     """
-    pc = _PITCH_CLASS_REVERSE_ENCODING[prediction[0]]
-    octave = _OCTAVE_REVERSE_ENCODING[prediction[1]]
-    if pc != "None" and octave != "None":
-        ps = float(pc) + (int(octave) + 1) * 12
-        letter_name, accidental_alter = convert_ps_to_note(ps)
-    else:
-        letter_name = "None"
-        pc = "None"
-        ps = "None"
-        accidental_alter = "None"
-
-    return {
-        "ps": ps,
-        "octave": int(octave),
-        "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[2]]),
-        "letter_name": letter_name,
-        "accidental": accidental_alter,
-        "pitch_class_id": pc,
-    }
+    x = []
+    for j in range(n, tokenized_dataset.shape[0] - 1):
+        y = []
+        for k in range(j-n, j):
+            y.append(tokenized_dataset[k, :])
+        x.append(torch.vstack(y))
+    return x
 
 
 def make_one_hot_features(dataset, batched=True):
@@ -308,6 +295,35 @@ def make_one_hot_features(dataset, batched=True):
     return instances
 
 
+def retrieve_class_dictionary(prediction):
+    """
+    Retrives a predicted class's information based on its id
+    :param prediction: The prediction tuple
+    :return: The prediction dictionary
+    """
+    pc = _PITCH_CLASS_REVERSE_ENCODING[prediction[0]]
+    octave = _OCTAVE_REVERSE_ENCODING[prediction[1]]
+    if pc != "None" and octave != "None":
+        octave = int(octave)
+        pc = float(pc)
+        ps = pc + (octave + 1) * 12
+        letter_name, accidental_alter = convert_ps_to_note(ps)
+    else:
+        letter_name = "None"
+        pc = "None"
+        ps = "None"
+        accidental_alter = "None"
+
+    return {
+        "ps": ps,
+        "octave": octave,
+        "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[2]]),
+        "letter_name": letter_name,
+        "accidental": accidental_alter,
+        "pitch_class_id": pc,
+    }
+
+
 def unload_data(dataset):
     """
     Unloads data and turns it into a score again, in preparation for
@@ -318,6 +334,9 @@ def unload_data(dataset):
     """
     notes = []
     rhythms = []
+    time_signature = "4/4"
+    if len(dataset) > 0:
+        time_signature = dataset[0]["time_signature"]
     for item in dataset:
         if item["ps"] == "None":
             notes.append(-np.inf)
@@ -328,8 +347,8 @@ def unload_data(dataset):
     score = xml_gen.create_score()
     xml_gen.add_instrument(score, "Cello", "Vc.")
     if len(notes) > 0:
-        xml_gen.add_measures(score, 50, 1, 1, meter=notes[0]["time_signature"])
-        xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(notes[0]["time_signature"].split('/')[0]))
+        xml_gen.add_measures(score, 50, 1, 1, meter=time_signature)
+        xml_gen.add_sequence(score[1], notes_m21, bar_duration=int(time_signature.split('/')[0]))
         xml_gen.remove_empty_measures(score)
     return score
 
