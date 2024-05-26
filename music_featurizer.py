@@ -15,6 +15,7 @@ import numpy as np
 from fractions import Fraction
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
+from typing import Tuple
 
 
 ###################################################################################################################
@@ -119,7 +120,11 @@ _NUM_FEATURES = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + le
 _NUM_OUTPUTS = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
-def calculate_next_beat(note):
+###################################################################################################################
+# Functions for featurization
+###################################################################################################################
+
+def calculate_next_beat(note) -> Fraction:
     """
     Calculates the beat of the next note based on the time signature and beat length
     of the current note
@@ -133,14 +138,14 @@ def calculate_next_beat(note):
     return beat
 
 
-def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octave):
+def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octave) -> dict:
     """
     Gets the following: pitch class, octave, pitch space value, letter name, and accidental
     from provided letter name, accidental, and octave strings
     :param letter_name: The letter name string
     :param accidental_name: The accidental string
     :param octave: The octave string
-    :return: {pitch class, octave, pitch space value, letter name, accidental}
+    :return: A note dictionary {pitch class, octave, pitch space value, letter name, accidental}
     """
     PC_MAP = {'C': 0.0, 'D': 2.0, 'E': 4.0, 'F': 5.0, 'G': 7.0, 'A': 9.0, 'B': 11.0}
     note = {}
@@ -163,13 +168,13 @@ def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octav
     return note
 
 
-def convert_pc_octave_to_note(pc, octave):
+def convert_pc_octave_to_note(pc, octave) -> dict:
     """
     Gets the following: pitch class, octave, pitch space value, letter name, and accidental
     from provided pitch class and octave strings
     :param pc: The pitch class string
     :param octave: The octave string
-    :return: {pitch class, octave, pitch space value, letter name, accidental}
+    :return: A note dictionary {pitch class, octave, pitch space value, letter name, accidental}
     """
     PC_MAP = [('C', 0), ('C', -1), ('D', 0), ('D', -1), ('E', 0), ('F', 0), ('F', -1), ('G', 0), ('G', -1), ('A', 0), ('A', -1), ('B', 0)]
     # PC_MAP = {'0.0': 'C', '2.0': 'D', '4.0': 'E', '5.0': 'F', '7.0': 'G', '9.0': 'A', '11.0': 'B'}
@@ -210,11 +215,11 @@ def get_staff_indices(score) -> list:
     return indices
 
 
-def load_data(staff):
+def load_data(staff) -> list:
     """
     Loads a Music21 staff and featurizes it
     :param staff: The staff to load
-    :return: The tokenized score
+    :return: The tokenized score as a list of note dictionaries 
     """
     dataset = []
     tie_status = False
@@ -281,7 +286,7 @@ def load_data(staff):
     return dataset
 
 
-def make_labels(x):
+def make_labels(x) -> list:
     """
     Generates a label list for a list of sequences (2D tensors). The label is
     calculated for a particular index in dimension 1 of the 2D tensors.
@@ -307,15 +312,15 @@ def make_labels(x):
     return y
 
 
-def make_n_gram_sequences(tokenized_dataset, n):
+def make_n_gram_sequences(tokenized_dataset, n) -> list:
     """
     Makes N-gram sequences from a tokenized dataset
     :param tokenized_dataset: The tokenized dataset
     :param n: The length of the n-grams
-    :return: X, (y1, y2) (a 3D tensor and a tuple of 2D tensors).
-    X dimension 1 is the N-gram
-    X dimension 2 is each entry in the N-gram
-    X dimension 3 is the features of the entry
+    :return: X
+    X is a list of N-gram tensors
+      (dimension 1 is the entry in the N-gram)
+      (dimension 2 has the features of the entry)
     """
     x = []
     for j in range(n, tokenized_dataset.shape[0] - 1):
@@ -326,7 +331,7 @@ def make_n_gram_sequences(tokenized_dataset, n):
     return x
 
 
-def make_one_hot_features(dataset, batched=True):
+def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
     """
     Turns a dataset into a list of one-hot-featured instances in preparation for 
     running it through a model. You can use this for making predictions if you want.
@@ -334,7 +339,7 @@ def make_one_hot_features(dataset, batched=True):
     :param batched: Whether or not the data is expected to be in batched format (3D) 
     or unbatched format (2D). If you will be piping this data into the make_sequences 
     function, it should not be batched. In all other cases, it should be batched.
-    :return: The one-hot data
+    :return: The one-hot data as a 2D or 3D tensor
     """
     instances = []
     for instance in dataset:
@@ -362,7 +367,7 @@ def make_one_hot_features(dataset, batched=True):
     return instances
 
 
-def retrieve_class_dictionary(prediction):
+def retrieve_class_dictionary(prediction: tuple) -> dict:
     """
     Retrives a predicted class's information based on its id
     :param prediction: The prediction tuple
@@ -373,7 +378,7 @@ def retrieve_class_dictionary(prediction):
     return note
 
 
-def unload_data(dataset):
+def unload_data(dataset: list) -> music21.stream.Score:
     """
     Unloads data and turns it into a score again, in preparation for
     rendering a MusicXML file.
@@ -433,7 +438,7 @@ class MusicXMLDataSet(Dataset):
         self.max_sequence_length = max_sequence_length
         self.data, self.labels = self._load_data(file_list)
         
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Gets the number of entries in the dataset
         :return: The number of entries in the dataset
@@ -449,7 +454,7 @@ class MusicXMLDataSet(Dataset):
         label = self.labels[idx]
         return sample, *label
     
-    def _load_data(self, file_list):
+    def _load_data(self, file_list) -> Tuple[list, list]:
         """
         Parses each MusicXML file and generates sequences and labels from it
         :param file_list: A list of MusicXML files to turn into a dataset

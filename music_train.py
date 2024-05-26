@@ -123,7 +123,7 @@ if __name__ == "__main__":
     
     PATH = "./data/train"             # The path to the training corpus
     FILE_NAME = "./data/model6.json"  # The path to the model metadata JSON file
-    RETRAIN = False                   # Whether or not to continue training the same model
+    RETRAIN = True                    # Whether or not to continue training the same model
     NUM_EPOCHS = 400                  # The number of epochs to train
     LEARNING_RATE = 0.001             # The model learning rate
     
@@ -143,8 +143,14 @@ if __name__ == "__main__":
     }
     with open(FILE_NAME, "w") as model_json_file:
         model_json_file.write(json.dumps(model_metadata))
-    with open("./data/sendgrid.json", "r") as sendgrid_json:
-        sendgrid_api_data = json.loads(sendgrid_json.read())
+
+    # sendgrid configuration
+    sendgrid_api_data = None
+    try:
+        with open("./data/sendgrid.json", "r") as sendgrid_json:
+            sendgrid_api_data = json.loads(sendgrid_json.read())
+    except Exception:
+        pass
 
     # Get the corpus and prepare it as a dataset
     # files = music_finder.prepare_directory(PATH, device)
@@ -176,9 +182,7 @@ if __name__ == "__main__":
     # Train the model
     print(f"Training for {NUM_EPOCHS} epochs...\n")
     # This version is if you don't want email updates
-    train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 1, 10, 
-                    model_metadata["state_dict"], device)
+    train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 1, 10, model_metadata["state_dict"], device)
     # This version is if you want email updates
-    # train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 20, 10, 
-    #                 model_metadata["state_dict"], device, sendgrid_api_data)
+    # train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 20, 10, model_metadata["state_dict"], device, sendgrid_api_data)
     

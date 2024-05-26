@@ -11,9 +11,10 @@ import music21
 import music_featurizer
 import music_generator
 import torch
+from typing import Tuple
 
 
-def predict_from_sequence(model, sequence, training_sequence_max_length):
+def predict_from_sequence(model, sequence, training_sequence_max_length) -> Tuple[dict, torch.Tensor]:
     """
     Predicts the next note, based on an existing model and a sequence of notes
     :param model: The model
@@ -31,7 +32,7 @@ def predict_from_sequence(model, sequence, training_sequence_max_length):
     return predicted_note, hidden
 
 
-def predict_next_note(model, current_note, hidden, training_sequence_max_length):
+def predict_next_note(model, current_note, hidden, training_sequence_max_length) -> Tuple[dict, torch.Tensor]:
     """
     Predicts the next note, based on an existing model and a sequence of notes
     :param model: The model
