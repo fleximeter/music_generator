@@ -70,8 +70,9 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
             total_loss_this_epoch += total_loss.item()
             num_batches_this_epoch += 1
             
-            # Update weights
+            # Update weights. Clip gradients to help avoid exploding and vanishing gradients.
             total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
         
         # Generate status. The status consists of the epoch number, average loss, epoch completion
@@ -122,9 +123,9 @@ if __name__ == "__main__":
     #######################################################################################
     
     PATH = "./data/train"             # The path to the training corpus
-    FILE_NAME = "./data/model6.json"  # The path to the model metadata JSON file
-    RETRAIN = True                    # Whether or not to continue training the same model
-    NUM_EPOCHS = 400                  # The number of epochs to train
+    FILE_NAME = "./data/model7.json"  # The path to the model metadata JSON file
+    RETRAIN = False                   # Whether or not to continue training the same model
+    NUM_EPOCHS = 800                  # The number of epochs to train
     LEARNING_RATE = 0.001             # The model learning rate
     
     # The model metadata - save to JSON file
@@ -132,10 +133,10 @@ if __name__ == "__main__":
         "model_name": "bach",
         "training_sequence_min_length": 2,
         "training_sequence_max_length": 20,
-        "num_layers": 4,
+        "num_layers": 6,
         "hidden_size": 1024,
         "batch_size": 200,
-        "state_dict": "./data/music_sequencer_6.pth",
+        "state_dict": "./data/music_sequencer_7.pth",
         "num_features": music_featurizer._NUM_FEATURES,
         "output_sizes": [
             len(music_featurizer._LETTER_NAME_ENCODING), len(music_featurizer._ACCIDENTAL_NAME_ENCODING), 

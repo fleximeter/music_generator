@@ -45,6 +45,11 @@ class LSTMMusic(nn.Module):
         self.hidden_size = hidden_size
         self.device = device
 
+        # Use He initialization to help avoid vanishing gradients
+        for name, param in self.lstm.named_parameters():
+            if "weight" in name:
+                nn.init.kaiming_uniform_(param, mode="fan_in", nonlinearity="relu")
+
     def forward(self, x, lengths, hidden_states):
         """
         Runs a batch of sequences forward through the model
