@@ -380,7 +380,6 @@ def unload_data(dataset):
         xml_gen.add_measures(score, MAX_MEASURE_NUMBERS, first_measure_num, key_signature, time_signature, bar_duration, 0.0, padding_left_first_measure)
         xml_gen.add_sequence(score[1], notes_m21, bar_duration=bar_duration, measure_no=first_measure_num)
         xml_gen.remove_empty_measures(score)
-        xml_gen.fix_last_measure(score)
     return score
 
 

@@ -217,20 +217,6 @@ def export_to_xml(score, path):
         file.write(output)
 
 
-def fix_last_measure(score):
-    """
-    Fixes the last measure in a score. Fills empty slots with rests
-    and adds a final barline
-    :param score: The score to fix the last measure in
-    """
-    for part in score:
-        if type(part) == music21.stream.Part or type(part) == music21.stream.PartStaff:
-            for i in range(len(part) - 1, -1, -1):
-                if type(part[i]) == music21.stream.Measure:
-                    part[i].rightBarline = music21.bar.Barline("final")
-                    break
-
-
 def make_music21_list(items, durations):
     """
     Makes a music21 list
@@ -289,3 +275,12 @@ def remove_empty_measures(score):
                         del item[i]
                         i -= 1
                 i += 1
+
+    # Set barline for final measure
+    for part in score:
+        if type(part) == music21.stream.Part or type(part) == music21.stream.PartStaff:
+            for i in range(len(part) - 1, -1, -1):
+                if type(part[i]) == music21.stream.Measure:
+                    part[i].rightBarline = music21.bar.Barline("final")
+                    break
+
