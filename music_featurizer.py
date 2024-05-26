@@ -124,20 +124,6 @@ _NUM_OUTPUTS = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len
 # Functions for featurization
 ###################################################################################################################
 
-def calculate_next_beat(note) -> Fraction:
-    """
-    Calculates the beat of the next note based on the time signature and beat length
-    of the current note
-    :param note: The note dictionary to calculate from
-    :return: The beat of the next note
-    """
-    time_signature_numerator = Fraction(note["time_signature"].split("/")[0])
-    beat = Fraction(note["beat"]) + Fraction(note["quarterLength"])
-    while beat > time_signature_numerator:
-        beat -= time_signature_numerator
-    return beat
-
-
 def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octave) -> dict:
     """
     Gets the following: pitch class, octave, pitch space value, letter name, and accidental
@@ -414,6 +400,24 @@ def unload_data(dataset: list) -> music21.stream.Score:
         xml_gen.add_sequence(score[1], notes_m21, bar_duration=bar_duration, measure_no=first_measure_num)
         xml_gen.remove_empty_measures(score)
     return score
+
+
+def update_note_based_on_previous(note, previous_note):
+    """
+    Updates a note based on its previous note. This is useful for adding in
+    important details, like beat position, that cannot be determined immediately
+    by the predictor.
+    :param note: The note to update
+    :param previous_note: The previous note in the sequence
+    """
+    time_signature_numerator = Fraction(previous_note["time_signature"].split("/")[0])
+    beat = Fraction(previous_note["beat"]) + Fraction(previous_note["quarterLength"])
+    while beat > time_signature_numerator:
+        beat -= time_signature_numerator
+    note["key_signature"] = previous_note["key_signature"] 
+    note["mode"] = previous_note["mode"]
+    note["time_signature"] = previous_note["time_signature"]
+    note["beat"] = beat            
 
 
 class MusicXMLDataSet(Dataset):
