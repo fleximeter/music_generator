@@ -21,8 +21,8 @@ from torch.nn.utils.rnn import pad_sequence
 # Feature dictionaries
 ###################################################################################################################
 
-_LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
-_ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.0": 1, "0.0": 2, "1.0": 3, "2.0": 4, "None": 5}
+_LETTER_NAME_ENCODING = {"None": 0, "C": 1, "D": 2, "E": 3, "F": 4, "G": 5, "A": 6, "B": 7}
+_ACCIDENTAL_ENCODING = {"None": 0, "-2.0": 1, "-1.0": 2, "0.0": 3, "1.0": 4, "2.0": 5}
 _ACCIDENTAL_NAME_ENCODING = {"None": 0, 'double-flat': 1, 'double-sharp': 2, 'flat': 3, 'half-flat': 4, 'half-sharp': 5, 
                              'natural': 6, 'one-and-a-half-flat': 7, 'one-and-a-half-sharp': 8, 'quadruple-flat': 9, 
                              'quadruple-sharp': 10, 'sharp': 11, 'triple-flat': 12, 'triple-sharp': 13}
@@ -34,6 +34,7 @@ _MODE_ENCODING = {"None": 0, "major": 1, "minor": 2}
 _BEAT_ENCODING = {"None": 0}
 _QUARTER_LENGTH_ENCODING = {"None": 0}
 _PITCH_SPACE_REVERSE_ENCODING = {0: "None"}
+_LETTER_NAME_REVERSE_ENCODING = {0: "None", 1: "C", 2: "D", 3: "E", 4: "F", 5: "G", 6: "A", 7: "B"}
 _ACCIDENTAL_NAME_REVERSE_ENCODING = {0: "None", 1: 'double-flat', 2: 'double-sharp', 3: 'flat', 4: 'half-flat', 
                                      5: 'half-sharp', 6: 'natural', 7: 'one-and-a-half-flat', 8: 'one-and-a-half-sharp', 
                                      9: 'quadruple-flat', 10: 'quadruple-sharp', 11: 'sharp', 12: 'triple-flat', 13: 'triple-sharp'}
@@ -113,9 +114,9 @@ for denominator, step in [(2, 2), (3, 1), (4, 2), (6, 2), (8, 2)]:
 ###################################################################################################################
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
 ###################################################################################################################
-_NUM_FEATURES = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + len(_BEAT_ENCODING) + \
-                len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_ENCODING)  + len(_KEY_SIGNATURE_ENCODING)  + len(_MODE_ENCODING) 
-_NUM_OUTPUTS = len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
+_NUM_FEATURES = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + \
+                len(_BEAT_ENCODING) + len(_PITCH_CLASS_ENCODING)  + len(_KEY_SIGNATURE_ENCODING)  + len(_MODE_ENCODING) 
+_NUM_OUTPUTS = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
 def calculate_next_beat(note):
@@ -288,19 +289,21 @@ def make_labels(x):
     Dimension 2 is the total sequence length
     Dimension 3 is the features of individual notes in the sequence
     :param x: A list of sequences
-    :return: A list of label tuples. Each label tuple has 3 labels (pc, octave, quarter length).
+    :return: A list of label tuples. Each label tuple has 4 labels (letter name, accidental name, octave, quarter length).
     """
     y = []
     for sequence in x:
         i = (
-            (0, len(_PITCH_CLASS_ENCODING)), 
-            (len(_PITCH_CLASS_ENCODING), len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING)),
-            (len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING), len(_PITCH_CLASS_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING))
+            (0, len(_LETTER_NAME_ENCODING)), 
+            (len(_LETTER_NAME_ENCODING), len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING)),
+            (len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING), len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING)),
+            (len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING), len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING))
         )
-        pc = sequence[-1, i[0][0]:i[0][1]]
-        octave = sequence[-1, i[1][0]:i[1][1]]
-        quarter_length = sequence[-1, i[2][0]:i[2][1]]
-        y.append((pc.argmax().item(), octave.argmax().item(), quarter_length.argmax().item()))
+        letter_name = sequence[-1, i[0][0]:i[0][1]]
+        accidental_name = sequence[-1, i[1][0]:i[1][1]]
+        octave = sequence[-1, i[2][0]:i[2][1]]
+        quarter_length = sequence[-1, i[3][0]:i[3][1]]
+        y.append((letter_name.argmax().item(), accidental_name.argmax().item(), octave.argmax().item(), quarter_length.argmax().item()))
     return y
 
 
@@ -336,7 +339,7 @@ def make_one_hot_features(dataset, batched=True):
     instances = []
     for instance in dataset:
         # One-hots
-        pitch_space_one_hot = F.one_hot(torch.tensor(_PITCH_CLASS_ENCODING[str(instance["pitch_class_id"])]), len(_PITCH_CLASS_ENCODING)).float()
+        pitch_class_one_hot = F.one_hot(torch.tensor(_PITCH_CLASS_ENCODING[str(instance["pitch_class_id"])]), len(_PITCH_CLASS_ENCODING)).float()
         octave_one_hot = F.one_hot(torch.tensor(_OCTAVE_ENCODING[str(instance["octave"])]), len(_OCTAVE_ENCODING)).float()
         if instance["quarterLength"] == "None":
             quarter_length_one_hot = F.one_hot(torch.tensor(_QUARTER_LENGTH_ENCODING[str(instance["quarterLength"])]), len(_QUARTER_LENGTH_ENCODING)).float()
@@ -346,12 +349,12 @@ def make_one_hot_features(dataset, batched=True):
             beat_one_hot = F.one_hot(torch.tensor(_BEAT_ENCODING[str(instance["beat"])]), len(_BEAT_ENCODING)).float()
         else:
             beat_one_hot = F.one_hot(torch.tensor(_BEAT_ENCODING[str(Fraction(instance["beat"]))]), len(_BEAT_ENCODING)).float()
-        letter_one_hot = F.one_hot(torch.tensor(_LETTER_NAME_ENCODING[str(instance["letter_name"])]), len(_LETTER_NAME_ENCODING)).float()
-        accidental_one_hot = F.one_hot(torch.tensor(_ACCIDENTAL_ENCODING[str(instance["accidental"])]), len(_ACCIDENTAL_ENCODING)).float()
+        letter_name_one_hot = F.one_hot(torch.tensor(_LETTER_NAME_ENCODING[str(instance["letter_name"])]), len(_LETTER_NAME_ENCODING)).float()
+        accidental_name_one_hot = F.one_hot(torch.tensor(_ACCIDENTAL_NAME_ENCODING[str(instance["accidental_name"])]), len(_ACCIDENTAL_NAME_ENCODING)).float()
         key_signature_one_hot = F.one_hot(torch.tensor(_KEY_SIGNATURE_ENCODING[str(instance["key_signature"])]), len(_KEY_SIGNATURE_ENCODING)).float()
         mode_one_hot = F.one_hot(torch.tensor(_MODE_ENCODING[str(instance["mode"])]), len(_MODE_ENCODING)).float()
-        instances.append(torch.hstack((pitch_space_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, 
-                                       letter_one_hot, accidental_one_hot, key_signature_one_hot, mode_one_hot)))
+        instances.append(torch.hstack((letter_name_one_hot, accidental_name_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, 
+                                       pitch_class_one_hot, key_signature_one_hot, mode_one_hot)))
 
     instances = torch.vstack(instances)
     if batched:
@@ -365,8 +368,8 @@ def retrieve_class_dictionary(prediction):
     :param prediction: The prediction tuple
     :return: The prediction dictionary
     """
-    note = {"quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[2]])}
-    note.update(convert_pc_octave_to_note(_PITCH_CLASS_REVERSE_ENCODING[prediction[0]], _PITCH_CLASS_REVERSE_ENCODING[prediction[1]]))
+    note = {"quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[3]])}
+    note.update(convert_letter_accidental_octave_to_note(_LETTER_NAME_REVERSE_ENCODING[prediction[0]], _ACCIDENTAL_NAME_REVERSE_ENCODING[prediction[1]], _OCTAVE_REVERSE_ENCODING[prediction[2]]))
     return note
 
 
@@ -444,7 +447,7 @@ class MusicXMLDataSet(Dataset):
         """
         sample = self.data[idx]
         label = self.labels[idx]
-        return sample, label[0], label[1], label[2]
+        return sample, *label
     
     def _load_data(self, file_list):
         """
@@ -482,13 +485,14 @@ class MusicXMLDataSet(Dataset):
         """
         # Sort the batch in order of sequence length. This is required by the pack_padded_sequences function. 
         batch.sort(key=lambda x: len(x[0]), reverse=True)
-        sequences, targets1, targets2, targets3 = zip(*batch)
+        sequences, targets1, targets2, targets3, targets4 = zip(*batch)
         lengths = torch.tensor([seq.shape[0] for seq in sequences])
         sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)
         targets1 = torch.tensor(targets1)
         targets2 = torch.tensor(targets2)
         targets3 = torch.tensor(targets3)
-        return sequences_padded, targets1, targets2, targets3, lengths
+        targets4 = torch.tensor(targets4)
+        return sequences_padded, targets1, targets2, targets3, targets4, lengths
     
     def prepare_prediction(sequence, max_length):
         """

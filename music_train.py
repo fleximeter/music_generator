@@ -19,8 +19,9 @@ import sendgrid.helpers.mail as mail
 from torch.utils.data import DataLoader
 
 
-def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, optimizer, dataloader, 
-                    num_epochs, status_interval, save_interval, model_state_file, device="cpu", sendgrid_api_data=None):
+def train_sequences(model, loss_fn_letter_name, loss_fn_accidental_name, loss_fn_octave, loss_fn_quarter_length, 
+                    optimizer, dataloader, num_epochs, status_interval, save_interval, model_state_file, 
+                    device="cpu", sendgrid_api_data=None):
     """
     Trains the model. This training function expects a DataLoader which will feed it batches
     of sequences in randomized order. The DataLoader takes care of serving up labels as well.
@@ -28,7 +29,8 @@ def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, o
     The model state is routinely saved to disk, so you can use it while it is training.
          
     :param model: The model to train
-    :param loss_fn_pc: The loss function for pitch class
+    :param loss_fn_letter_name: The loss function for letter name
+    :param loss_fn_accidental_name: The loss function for accidental name
     :param loss_fn_octave: The loss function for octave
     :param loss_fn_quarter_length: The loss function for quarter length
     :param optimizer: The optimizer
@@ -50,7 +52,7 @@ def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, o
         num_batches_this_epoch = 0
 
         # Iterate through each batch in the dataloader. The batch will have 3 labels per sequence.
-        for x, y1, y2, y3, lengths in dataloader:
+        for x, y1, y2, y3, y4, lengths in dataloader:
             optimizer.zero_grad()
 
             # Prepare for running through the net
@@ -58,16 +60,18 @@ def train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, o
             y1 = y1.to(device)
             y2 = y2.to(device)
             y3 = y3.to(device)
+            y4 = y4.to(device)
             hidden = model.init_hidden(x.shape[0])
 
             # Run the current batch through the net
             output, _ = model(x, lengths, hidden)
 
             # Compute loss
-            loss_pc = loss_fn_pc(output[0], y1)
-            loss_octave = loss_fn_octave(output[1], y2)
-            loss_quarter_length = loss_fn_quarter_length(output[2], y3)
-            total_loss = loss_pc + loss_octave + loss_quarter_length
+            loss_letter_name = loss_fn_letter_name(output[0], y1)
+            loss_accidental_name = loss_fn_accidental_name(output[1], y2)
+            loss_octave = loss_fn_octave(output[2], y3)
+            loss_quarter_length = loss_fn_quarter_length(output[3], y4)
+            total_loss = loss_letter_name + loss_accidental_name + loss_octave + loss_quarter_length
             total_loss_this_epoch += total_loss.item()
             num_batches_this_epoch += 1
             
@@ -123,8 +127,8 @@ if __name__ == "__main__":
     #######################################################################################
     
     PATH = "./data/train"             # The path to the training corpus
-    FILE_NAME = "./data/model5.json"  # The path to the model metadata JSON file
-    RETRAIN = True                   # Whether or not to continue training the same model
+    FILE_NAME = "./data/model6.json"  # The path to the model metadata JSON file
+    RETRAIN = False                   # Whether or not to continue training the same model
     NUM_EPOCHS = 400                  # The number of epochs to train
     LEARNING_RATE = 0.001             # The model learning rate
     
@@ -136,9 +140,10 @@ if __name__ == "__main__":
         "num_layers": 4,
         "hidden_size": 1024,
         "batch_size": 200,
-        "state_dict": "./data/music_sequencer_5.pth",
+        "state_dict": "./data/music_sequencer_6.pth",
         "num_features": music_featurizer._NUM_FEATURES,
-        "output_size_pc": len(music_featurizer._PITCH_CLASS_ENCODING),
+        "output_size_letter_name": len(music_featurizer._LETTER_NAME_ENCODING),
+        "output_size_accidental_name": len(music_featurizer._ACCIDENTAL_NAME_ENCODING),
         "output_size_octave": len(music_featurizer._OCTAVE_ENCODING),
         "output_size_quarter_length": len(music_featurizer._QUARTER_LENGTH_ENCODING)
     }
@@ -165,22 +170,21 @@ if __name__ == "__main__":
         
     # Load and prepare the model. If retraining the model, we will need to load the
     # previous state dictionary so that we aren't training from scratch.
-    model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_size_pc"], model_metadata["output_size_octave"], 
+    model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_size_letter_name"], 
+                                      model_metadata["output_size_accidental_name"], model_metadata["output_size_octave"], 
                                       model_metadata["output_size_quarter_length"], model_metadata["hidden_size"], 
                                       model_metadata["num_layers"], device).to(device)
     if RETRAIN:
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
-    loss_fn_pc = nn.CrossEntropyLoss()
-    loss_fn_octave = nn.CrossEntropyLoss()
-    loss_fn_quarter_length = nn.CrossEntropyLoss()
+    loss_fn = [nn.CrossEntropyLoss() for i in range(4)]
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     # Train the model
     print(f"Training for {NUM_EPOCHS} epochs...\n")
     # This version is if you don't want email updates
-    train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, optimizer, dataloader, 
-                    NUM_EPOCHS, 1, 10, model_metadata["state_dict"], device)
+    train_sequences(model, *loss_fn, optimizer, dataloader, NUM_EPOCHS, 1, 10, 
+                    model_metadata["state_dict"], device)
     # This version is if you want email updates
-    # train_sequences(model, loss_fn_pc, loss_fn_octave, loss_fn_quarter_length, optimizer, dataloader, 
-    #                 NUM_EPOCHS, 20, 10, model_metadata["state_dict"], device, sendgrid_api_data)
+    # train_sequences(model, *loss_fn, optimizer, dataloader, NUM_EPOCHS, 20, 10, 
+    #                 model_metadata["state_dict"], device, sendgrid_api_data)
     
