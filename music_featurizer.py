@@ -150,7 +150,7 @@ def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octav
         note["letter_name"] = letter_name
         note["accidental_name"] = accidental_name
         note["accidental"] = _ACCIDENTAL_NAME_TO_ALTER_ENCODING[accidental_name]
-        note["pitch_class_id"] = PC_MAP[letter_name] + accidental_name
+        note["pitch_class_id"] = (PC_MAP[letter_name] + _ACCIDENTAL_NAME_TO_ALTER_ENCODING[accidental_name]) % 12
         note["ps"] = note["pitch_class_id"] + (note["octave"] + 1) * 12
     else:
         note["octave"] = "None"
