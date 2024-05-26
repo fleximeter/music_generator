@@ -10,9 +10,7 @@ import json
 import music21
 import music_featurizer
 import music_generator
-import os
 import torch
-import xml_gen
 
 
 def predict_from_sequence(model, sequence, training_sequence_max_length):
@@ -55,7 +53,7 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt4.musicxml"  # Only the top staff will be considered
+    MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
     MODEL_METADATA_FILE = "./data/model5.json"
     NOTES_TO_PREDICT = 25
 

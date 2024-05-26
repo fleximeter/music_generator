@@ -229,7 +229,7 @@ def make_music21_list(items, durations):
         for i in range(len(items)):
             current_item = items[i]
             current_duration = durations[i]
-
+            
             # Handles chords            
             if type(current_item) == set:
                 current_item = list(current_item)
@@ -240,12 +240,19 @@ def make_music21_list(items, durations):
                     m_list.append(music21.chord.Chord(current_item, quarterLength=current_duration))
                 
             # Handles notes
-            elif type(current_item) == float or type(current_item) == int:
-                if np.isneginf(current_item):
-                    m_list.append(music21.note.Rest(quarterLength=current_duration))
-                else:
-                    m_list.append(music21.note.Note(current_item, quarterLength=current_duration))
+            elif type(current_item) == tuple and len(current_item) >= 2:
+                note = music21.note.Note()
+                note.step = current_item[0]
+                note.octave = current_item[1]
+                note.quarterLength = current_duration
+                if len(current_item) == 3 and current_item[-1] != "None":
+                    note.pitch.accidental = current_item[2]
+                m_list.append(note)
             
+            # Handles rests
+            elif np.isneginf(current_item):
+                m_list.append(music21.note.Rest(quarterLength=current_duration))
+    
     return m_list
 
 

@@ -23,6 +23,9 @@ from torch.nn.utils.rnn import pad_sequence
 
 _LETTER_NAME_ENCODING = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, "None": 7}
 _ACCIDENTAL_ENCODING = {"-2.0": 0, "-1.0": 1, "0.0": 2, "1.0": 3, "2.0": 4, "None": 5}
+_ACCIDENTAL_NAME_ENCODING = {"None": 0, 'double-flat': 1, 'double-sharp': 2, 'flat': 3, 'half-flat': 4, 'half-sharp': 5, 
+                             'natural': 6, 'one-and-a-half-flat': 7, 'one-and-a-half-sharp': 8, 'quadruple-flat': 9, 
+                             'quadruple-sharp': 10, 'sharp': 11, 'triple-flat': 12, 'triple-sharp': 13}
 _PITCH_SPACE_ENCODING = {"None": 0}
 _OCTAVE_ENCODING = {"None": 0}
 _PITCH_CLASS_ENCODING = {"None": 0}
@@ -31,12 +34,24 @@ _MODE_ENCODING = {"None": 0, "major": 1, "minor": 2}
 _BEAT_ENCODING = {"None": 0}
 _QUARTER_LENGTH_ENCODING = {"None": 0}
 _PITCH_SPACE_REVERSE_ENCODING = {0: "None"}
+_ACCIDENTAL_NAME_REVERSE_ENCODING = {0: "None", 1: 'double-flat', 2: 'double-sharp', 3: 'flat', 4: 'half-flat', 
+                                     5: 'half-sharp', 6: 'natural', 7: 'one-and-a-half-flat', 8: 'one-and-a-half-sharp', 
+                                     9: 'quadruple-flat', 10: 'quadruple-sharp', 11: 'sharp', 12: 'triple-flat', 13: 'triple-sharp'}
 _OCTAVE_REVERSE_ENCODING = {0: "None"}
 _PITCH_CLASS_REVERSE_ENCODING = {0: "None"}
 _KEY_SIGNATURE_REVERSE_ENCODING = {0: "None"}
 _MODE_REVERSE_ENCODING = {0: "None", 1: "major", 2: "minor"}
 _BEAT_REVERSE_ENCODING = {0: "None"}
 _QUARTER_LENGTH_REVERSE_ENCODING = {0: "None"}
+
+# Lets you convert accidental names to chromatic alteration
+_ACCIDENTAL_NAME_TO_ALTER_ENCODING = {"None": 0.0, 'double-flat': 2.0, 'double-sharp': -2.0, 'flat': 1.0, 'half-flat': 0.5, 'half-sharp': -0.5, 
+                                     'natural': 0.0, 'one-and-a-half-flat': 1.5, 'one-and-a-half-sharp': -1.5, 'quadruple-flat': 4.0, 
+                                     'quadruple-sharp': -4.0, 'sharp': -1.0, 'triple-flat': 3.0, 'triple-sharp': -3.0}
+
+_ACCIDENTAL_ALTER_TO_NAME_ENCODING = {0.0: "None", 2.0: 'double-flat', -2.0: 'double-sharp', 1.0: 'flat', 0.5: 'half-flat', -0.5: 'half-sharp', 
+                                      1.5: 'one-and-a-half-flat', -1.5: 'one-and-a-half-sharp', 4.0: 'quadruple-flat', 
+                                      -4.0: 'quadruple-sharp', -1.0: 'sharp', 3.0: 'triple-flat', -3.0: 'triple-sharp'}
 
 ##########################################################################
 # Generate pitch encoding
@@ -66,57 +81,33 @@ for i in range(1, 15+1):
 # Generate beat and quarter length encoding
 ##########################################################################
 
-j = 1
+# This sets the maximum note duration in quarter notes that the model can handle.
+_MAX_QUARTER_LENGTH = 8
+
+idx_quarter_length = 1
 
 # Quarters
-for i in range(1, 8):
-    _QUARTER_LENGTH_ENCODING[f"{i}"] = j
-    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}"
-    _BEAT_ENCODING[f"{i}"] = j
-    _BEAT_REVERSE_ENCODING[j] = f"{i}"
-    j += 1
+for i in range(1, _MAX_QUARTER_LENGTH):
+    _QUARTER_LENGTH_ENCODING[f"{i}"] = idx_quarter_length
+    _QUARTER_LENGTH_REVERSE_ENCODING[idx_quarter_length] = f"{i}"
+    _BEAT_ENCODING[f"{i}"] = idx_quarter_length
+    _BEAT_REVERSE_ENCODING[idx_quarter_length] = f"{i}"
+    idx_quarter_length += 1
 
-# Eighths
-for i in range(1, 16, 2):
-    _QUARTER_LENGTH_ENCODING[f"{i}/2"] = j
-    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/2"
-    _BEAT_ENCODING[f"{i}/2"] = j
-    _BEAT_REVERSE_ENCODING[j] = f"{i}/2"
-    j += 1
-
-# Triplet eighths
-for i in range(1, 24):
-    if i % 3 != 0:
-        _QUARTER_LENGTH_ENCODING[f"{i}/3"] = j
-        _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/3"
-        _BEAT_ENCODING[f"{i}/3"] = j
-        _BEAT_REVERSE_ENCODING[j] = f"{i}/3"
-        j += 1
-
-# Sixteenths
-for i in range(1, 32, 2):
-    _QUARTER_LENGTH_ENCODING[f"{i}/4"] = j
-    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/4"
-    _BEAT_ENCODING[f"{i}/4"] = j
-    _BEAT_REVERSE_ENCODING[j] = f"{i}/4"
-    j += 1
-
-# Triplet sixteenths
-for i in range(1, 48, 2):
-    if i % 3 != 0:
-        _QUARTER_LENGTH_ENCODING[f"{i}/6"] = j
-        _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/6"
-        _BEAT_ENCODING[f"{i}/6"] = j
-        _BEAT_REVERSE_ENCODING[j] = f"{i}/6"
-        j += 1
-
-# 32nds
-for i in range(1, 64, 2):
-    _QUARTER_LENGTH_ENCODING[f"{i}/8"] = j
-    _QUARTER_LENGTH_REVERSE_ENCODING[j] = f"{i}/8"
-    _BEAT_ENCODING[f"{i}/8"] = j
-    _BEAT_REVERSE_ENCODING[j] = f"{i}/8"
-    j += 1
+# 8ths, triplet 8ths, 16ths, triplet 16ths, 32nds. The first value
+# in the tuple is the quarter length denominator, and the second value
+# is a step value. The step value helps to avoid duplicate duration
+# values in the encoding. In general it should probably be 2, except 
+# for triplet eighths.
+for denominator, step in [(2, 2), (3, 1), (4, 2), (6, 2), (8, 2)]:
+    for i in range(1, _MAX_QUARTER_LENGTH * denominator, step):
+        # This condition catches duplicate durations for subdivisions of 3 and 6
+        if denominator % 3 != 0 or i % 3 != 0:
+            _QUARTER_LENGTH_ENCODING[f"{i}/{denominator}"] = idx_quarter_length
+            _QUARTER_LENGTH_REVERSE_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
+            _BEAT_ENCODING[f"{i}/{denominator}"] = idx_quarter_length
+            _BEAT_REVERSE_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
+            idx_quarter_length += 1
 
 
 ###################################################################################################################
@@ -141,18 +132,67 @@ def calculate_next_beat(note):
     return beat
 
 
-def convert_ps_to_note(ps: float):
+def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octave):
     """
-    Gets the letter name of a note and its accidental from a provided pitch space number
-    :param ps: The pitch space number
-    :return: The letter name and accidental alter value
+    Gets the following: pitch class, octave, pitch space value, letter name, and accidental
+    from provided letter name, accidental, and octave strings
+    :param letter_name: The letter name string
+    :param accidental_name: The accidental string
+    :param octave: The octave string
+    :return: {pitch class, octave, pitch space value, letter name, accidental}
+    """
+    PC_MAP = {'C': 0.0, 'D': 2.0, 'E': 4.0, 'F': 5.0, 'G': 7.0, 'A': 9.0, 'B': 11.0}
+    note = {}
+
+    if letter_name != "None" and octave != "None":
+        note["octave"] = int(float(octave))
+        note["letter_name"] = letter_name
+        note["accidental_name"] = accidental_name
+        note["accidental"] = _ACCIDENTAL_NAME_TO_ALTER_ENCODING[accidental_name]
+        note["pitch_class_id"] = PC_MAP[letter_name] + accidental_name
+        note["ps"] = note["pitch_class_id"] + (note["octave"] + 1) * 12
+    else:
+        note["octave"] = "None"
+        note["pitch_class_id"] = "None"
+        note["ps"] = "None"
+        note["letter_name"] = "None"
+        note["accidental_name"] = "None"
+        note["accidental"] = "None"
+
+    return note
+
+
+def convert_pc_octave_to_note(pc, octave):
+    """
+    Gets the following: pitch class, octave, pitch space value, letter name, and accidental
+    from provided pitch class and octave strings
+    :param pc: The pitch class string
+    :param octave: The octave string
+    :return: {pitch class, octave, pitch space value, letter name, accidental}
     """
     PC_MAP = [('C', 0), ('C', -1), ('D', 0), ('D', -1), ('E', 0), ('F', 0), ('F', -1), ('G', 0), ('G', -1), ('A', 0), ('A', -1), ('B', 0)]
-    microtone, semitone = math.modf(ps)
-    pc = semitone % 12
-    letter_name, accidental_alter = PC_MAP[int(pc)]
-    accidental_alter -= microtone
-    return letter_name, accidental_alter
+    # PC_MAP = {'0.0': 'C', '2.0': 'D', '4.0': 'E', '5.0': 'F', '7.0': 'G', '9.0': 'A', '11.0': 'B'}
+    note = {}
+
+    if pc != "None" and octave != "None":
+        note["octave"] = int(float(octave))
+        note["pitch_class_id"] = float(pc)
+        note["ps"] = note["pitch_class_id"] + (note["octave"] + 1) * 12
+        microtone, semitone = math.modf(note["ps"])
+        pc = semitone % 12
+        note["letter_name"], accidental_alter = PC_MAP[int(pc)]
+        accidental_alter -= microtone
+        note["accidental"] = accidental_alter
+        note["accidental_name"] = _ACCIDENTAL_ALTER_TO_NAME_ENCODING[accidental_alter]
+    else:
+        note["octave"] = "None"
+        note["pitch_class_id"] = "None"
+        note["ps"] = "None"
+        note["letter_name"] = "None"
+        note["accidental"] = "None"
+        note["accidental_name"] = "None"
+
+    return note    
 
 
 def get_staff_indices(score) -> list:
@@ -197,7 +237,8 @@ def load_data(staff):
                         current_note["octave"] = item.pitch.octave                             # Octave number (symbolic)
                         current_note["letter_name"] = item.pitch.step                          # letter name (C, D, E, ...) (symbolic x8)
 
-                        # accidental alteration (symbolic)
+                        # accidental (symbolic)
+                        current_note["accidental_name"] = item.pitch.accidental.name if item.pitch.accidental is not None else "None"
                         current_note["accidental"] = item.pitch.accidental.alter if item.pitch.accidental is not None else 0.0
                         current_note["pitch_class_id"] = float(item.pitch.pitchClass)          # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                         current_note["key_signature"] = current_key                            # key signature
@@ -225,7 +266,8 @@ def load_data(staff):
                     current_note["ps"] = "None"                                  # MIDI number (symbolic x257)
                     current_note["octave"] = "None"                              # MIDI number (symbolic x257)
                     current_note["letter_name"] = "None"                         # letter name (C, D, E, ...) (symbolic x8)
-                    current_note["accidental"] = "None"                          # accidental name ("sharp", etc.) (symbolic)
+                    current_note["accidental_name"] = "None"                     # accidental name ("sharp", etc.) (symbolic)
+                    current_note["accidental"] = "None"                          # accidental alter value (symbolic)
                     current_note["pitch_class_id"] = "None"                      # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                     current_note["key_signature"] = current_key                  # key signature
                     current_note["mode"] = current_mode                          # mode
@@ -323,27 +365,9 @@ def retrieve_class_dictionary(prediction):
     :param prediction: The prediction tuple
     :return: The prediction dictionary
     """
-    pc = _PITCH_CLASS_REVERSE_ENCODING[prediction[0]]
-    octave = _OCTAVE_REVERSE_ENCODING[prediction[1]]
-    if pc != "None" and octave != "None":
-        octave = int(octave)
-        pc = float(pc)
-        ps = pc + (octave + 1) * 12
-        letter_name, accidental_alter = convert_ps_to_note(ps)
-    else:
-        letter_name = "None"
-        pc = "None"
-        ps = "None"
-        accidental_alter = "None"
-
-    return {
-        "ps": ps,
-        "octave": octave,
-        "quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[2]]),
-        "letter_name": letter_name,
-        "accidental": accidental_alter,
-        "pitch_class_id": pc,
-    }
+    note = {"quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[2]])}
+    note.update(convert_pc_octave_to_note(_PITCH_CLASS_REVERSE_ENCODING[prediction[0]], _PITCH_CLASS_REVERSE_ENCODING[prediction[1]]))
+    return note
 
 
 def unload_data(dataset):
@@ -365,10 +389,11 @@ def unload_data(dataset):
         key_signature = dataset[0]["key_signature"]
         padding_left_first_measure = dataset[0]["beat"] - 1
     for item in dataset:
-        if item["ps"] == "None":
+        if item["letter_name"] == "None":
             notes.append(-np.inf)
         else:
-            notes.append(float(item["ps"]))
+            x = (item["letter_name"], item["octave"], item["accidental_name"])
+            notes.append((item["letter_name"], item["octave"], item["accidental_name"]))
         rhythms.append(float(item["quarterLength"]))
     notes_m21 = xml_gen.make_music21_list(notes, rhythms)
     score = xml_gen.create_score()
