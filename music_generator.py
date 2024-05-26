@@ -22,7 +22,7 @@ class LSTMMusic(nn.Module):
     y2: octave logits
     y3: quarter length logits
     """
-    def __init__(self, input_size, output_size_letter_name, output_size_accidental_name, output_size_octave, output_size_quarter_length, hidden_size=128, num_layers=1, device="cpu"):
+    def __init__(self, input_size, output_sizes, hidden_size=128, num_layers=1, device="cpu"):
         """
         Initializes the music LSTM
         :param input_size: The input size
@@ -37,10 +37,10 @@ class LSTMMusic(nn.Module):
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
 
         # The output layers
-        self.output_letter_name = nn.Linear(hidden_size, output_size_letter_name)
-        self.output_accidental_name = nn.Linear(hidden_size, output_size_accidental_name)
-        self.output_octave = nn.Linear(hidden_size, output_size_octave)
-        self.output_quarter_length = nn.Linear(hidden_size, output_size_quarter_length)
+        self.output_letter_name = nn.Linear(hidden_size, output_sizes[0])
+        self.output_accidental_name = nn.Linear(hidden_size, output_sizes[1])
+        self.output_octave = nn.Linear(hidden_size, output_sizes[2])
+        self.output_quarter_length = nn.Linear(hidden_size, output_sizes[3])
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.device = device
@@ -76,5 +76,6 @@ class LSTMMusic(nn.Module):
         :param batch_size: The batch size
         :return: Returns a tuple of empty hidden matrices
         """
-        return (torch.zeros((self.num_layers, batch_size, self.hidden_size), device=self.device), torch.zeros((self.num_layers, batch_size, self.hidden_size), device=self.device))
+        return (torch.zeros((self.num_layers, batch_size, self.hidden_size), device=self.device), 
+                torch.zeros((self.num_layers, batch_size, self.hidden_size), device=self.device))
     

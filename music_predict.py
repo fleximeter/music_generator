@@ -55,7 +55,7 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
+    MUSICXML_PROMPT_FILE = "./data/prompt3.musicxml"  # Only the top staff will be considered
     MODEL_METADATA_FILE = "./data/model6.json"
     NOTES_TO_PREDICT = 25
 
@@ -86,10 +86,8 @@ if __name__ == "__main__":
         tokenized_data = music_featurizer.make_one_hot_features(data)
         
         # Load the model state dictionary from file
-        model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_size_letter_name"], 
-                                      model_metadata["output_size_accidental_name"], model_metadata["output_size_octave"], 
-                                      model_metadata["output_size_quarter_length"], model_metadata["hidden_size"], 
-                                      model_metadata["num_layers"])
+        model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
+                                          model_metadata["hidden_size"], model_metadata["num_layers"])
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
         
         # Predict the next N notes

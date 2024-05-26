@@ -19,9 +19,8 @@ import sendgrid.helpers.mail as mail
 from torch.utils.data import DataLoader
 
 
-def train_sequences(model, loss_fn_letter_name, loss_fn_accidental_name, loss_fn_octave, loss_fn_quarter_length, 
-                    optimizer, dataloader, num_epochs, status_interval, save_interval, model_state_file, 
-                    device="cpu", sendgrid_api_data=None):
+def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_epochs, status_interval, 
+                    save_interval, model_state_file, device="cpu", sendgrid_api_data=None):
     """
     Trains the model. This training function expects a DataLoader which will feed it batches
     of sequences in randomized order. The DataLoader takes care of serving up labels as well.
@@ -29,12 +28,10 @@ def train_sequences(model, loss_fn_letter_name, loss_fn_accidental_name, loss_fn
     The model state is routinely saved to disk, so you can use it while it is training.
          
     :param model: The model to train
-    :param loss_fn_letter_name: The loss function for letter name
-    :param loss_fn_accidental_name: The loss function for accidental name
-    :param loss_fn_octave: The loss function for octave
-    :param loss_fn_quarter_length: The loss function for quarter length
-    :param optimizer: The optimizer
     :param dataloader: The dataloader
+    :param loss_fns: The loss functions
+    :param loss_weights: The loss weights
+    :param optimizer: The optimizer
     :param num_epochs: The number of epochs for training
     :param status_interval: How often (in epochs) to print an update message
     :param save_interval: Save to disk every N epochs
@@ -61,17 +58,15 @@ def train_sequences(model, loss_fn_letter_name, loss_fn_accidental_name, loss_fn
             y2 = y2.to(device)
             y3 = y3.to(device)
             y4 = y4.to(device)
+            y = (y1, y2, y3, y4)
             hidden = model.init_hidden(x.shape[0])
 
             # Run the current batch through the net
             output, _ = model(x, lengths, hidden)
 
             # Compute loss
-            loss_letter_name = loss_fn_letter_name(output[0], y1)
-            loss_accidental_name = loss_fn_accidental_name(output[1], y2)
-            loss_octave = loss_fn_octave(output[2], y3)
-            loss_quarter_length = loss_fn_quarter_length(output[3], y4)
-            total_loss = loss_letter_name + loss_accidental_name + loss_octave + loss_quarter_length
+            loss = [loss_fns[i](output[i], y[i]) * loss_weights[i] for i in range(len(y))]
+            total_loss = sum(loss)
             total_loss_this_epoch += total_loss.item()
             num_batches_this_epoch += 1
             
@@ -142,10 +137,9 @@ if __name__ == "__main__":
         "batch_size": 200,
         "state_dict": "./data/music_sequencer_6.pth",
         "num_features": music_featurizer._NUM_FEATURES,
-        "output_size_letter_name": len(music_featurizer._LETTER_NAME_ENCODING),
-        "output_size_accidental_name": len(music_featurizer._ACCIDENTAL_NAME_ENCODING),
-        "output_size_octave": len(music_featurizer._OCTAVE_ENCODING),
-        "output_size_quarter_length": len(music_featurizer._QUARTER_LENGTH_ENCODING)
+        "output_sizes": [
+            len(music_featurizer._LETTER_NAME_ENCODING), len(music_featurizer._ACCIDENTAL_NAME_ENCODING), 
+            len(music_featurizer._OCTAVE_ENCODING), len(music_featurizer._QUARTER_LENGTH_ENCODING)]
     }
     with open(FILE_NAME, "w") as model_json_file:
         model_json_file.write(json.dumps(model_metadata))
@@ -170,21 +164,21 @@ if __name__ == "__main__":
         
     # Load and prepare the model. If retraining the model, we will need to load the
     # previous state dictionary so that we aren't training from scratch.
-    model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_size_letter_name"], 
-                                      model_metadata["output_size_accidental_name"], model_metadata["output_size_octave"], 
-                                      model_metadata["output_size_quarter_length"], model_metadata["hidden_size"], 
-                                      model_metadata["num_layers"], device).to(device)
+    model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
+                                      model_metadata["hidden_size"], model_metadata["num_layers"], device).to(device)
     if RETRAIN:
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
-    loss_fn = [nn.CrossEntropyLoss() for i in range(4)]
+    loss_fn = [nn.CrossEntropyLoss() for i in range(len(model_metadata["output_sizes"]))]
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    loss_weights = torch.tensor([1.0, 5.0, 1.0, 1.0])  # emphasize the loss of the accidental
+    loss_weights /= torch.sum(loss_weights)            # normalize the loss weights to a sum of 1
 
     # Train the model
     print(f"Training for {NUM_EPOCHS} epochs...\n")
     # This version is if you don't want email updates
-    train_sequences(model, *loss_fn, optimizer, dataloader, NUM_EPOCHS, 1, 10, 
+    train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 1, 10, 
                     model_metadata["state_dict"], device)
     # This version is if you want email updates
-    # train_sequences(model, *loss_fn, optimizer, dataloader, NUM_EPOCHS, 20, 10, 
+    # train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 20, 10, 
     #                 model_metadata["state_dict"], device, sendgrid_api_data)
     
