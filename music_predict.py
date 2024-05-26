@@ -53,9 +53,9 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt3.musicxml"  # Only the top staff will be considered
-    MODEL_METADATA_FILE = "./data/model.json"
-    NOTES_TO_PREDICT = 10
+    MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
+    MODEL_METADATA_FILE = "./data/model5.json"
+    NOTES_TO_PREDICT = 25
 
     #######################################################################################
     # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
@@ -81,20 +81,28 @@ if __name__ == "__main__":
     if not abort:
         # Predict only for the top staff
         data = music_featurizer.load_data(score[music_featurizer.get_staff_indices(score)[0]])
-        tokenized_data = music_featurizer.tokenize(data)
+        tokenized_data = music_featurizer.make_one_hot_features(data)
         
         # Load the model state dictionary from file
         model = music_generator.LSTMMusic(model_data["num_features"], model_data["output_size_pc"], model_data["output_size_octave"], 
-                                        model_data["output_size_quarter_length"], model_data["hidden_size"], 
-                                        model_data["num_layers"])
+                                          model_data["output_size_quarter_length"], model_data["hidden_size"], 
+                                          model_data["num_layers"])
         model.load_state_dict(torch.load(model_data["state_dict"]))
         
         # Predict the next N notes
         next_note, hidden = predict_from_sequence(model, tokenized_data, model_data["training_sequence_max_length"])
         for i in range(NOTES_TO_PREDICT):
+            # get the note time signature and beat based on the previous note
+            next_note["key_signature"] = data[-1]["key_signature"] 
+            next_note["mode"] = data[-1]["mode"]
+            next_note["time_signature"] = data[-1]["time_signature"]
+            next_note["beat"] = music_featurizer.calculate_next_beat(data[-1])
             data.append(next_note)
-            next_note, hidden = predict_next_note(model, music_featurizer.tokenize([next_note]), hidden, model_data["training_sequence_max_length"])
+            next_note, hidden = predict_next_note(model, music_featurizer.make_one_hot_features([next_note]), hidden, model_data["training_sequence_max_length"])
 
         # Turn the data into a score
         score = music_featurizer.unload_data(data)
         score.show()
+        # destination_split = os.path.split(MUSICXML_PROMPT_FILE)
+        # destination_file = "predicted_" + destination_split[-1]
+        # xml_gen.export_to_xml(score, os.path.join(*destination_split[:-1], destination_file))

@@ -122,11 +122,11 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
     
-    PATH = "./data/train"            # The path to the training corpus
-    FILE_NAME = "./data/model.json"  # The path to the model metadata JSON file
-    RETRAIN = True                  # Whether or not to continue training the same model
-    NUM_EPOCHS = 200                 # The number of epochs to train
-    LEARNING_RATE = 0.001            # The model learning rate
+    PATH = "./data/train"             # The path to the training corpus
+    FILE_NAME = "./data/model5.json"  # The path to the model metadata JSON file
+    RETRAIN = True                   # Whether or not to continue training the same model
+    NUM_EPOCHS = 400                  # The number of epochs to train
+    LEARNING_RATE = 0.001             # The model learning rate
     
     # The model metadata - save to JSON file
     model_metadata = {
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         "num_layers": 4,
         "hidden_size": 1024,
         "batch_size": 200,
-        "state_dict": "./data/music_sequencer_4.pth",
+        "state_dict": "./data/music_sequencer_5.pth",
         "num_features": music_featurizer._NUM_FEATURES,
         "output_size_pc": len(music_featurizer._PITCH_CLASS_ENCODING),
         "output_size_octave": len(music_featurizer._OCTAVE_ENCODING),
