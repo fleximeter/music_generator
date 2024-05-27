@@ -9,7 +9,7 @@ import music_features
 import music_featurizer
 import music21
 
-def detokenize(tokens, time_signature):
+def detokenize(tokens):
     """
     Detokenizes one-hot features and returns them to regular encoding
     :param tokens: A tensor of one-hot encoded instances
@@ -23,6 +23,7 @@ def detokenize(tokens, time_signature):
         (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING)),
         (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING)),
         (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING) + len(music_features.MODE_ENCODING)),
+        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING) + len(music_features.MODE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING) + len(music_features.MODE_ENCODING) + len(music_features.TIME_SIGNATURE_ENCODING)),
     )
 
     notes = []
@@ -34,6 +35,7 @@ def detokenize(tokens, time_signature):
         melodic_interval = tokens[j, i[4][0]:i[4][1]]
         key_signature = tokens[j, i[5][0]:i[5][1]]
         mode = tokens[j, i[6][0]:i[6][1]]
+        time_signature = tokens[j, i[7][0]:i[7][1]]
         letter_accidental_octave = music_features.REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[letter_accidental_octave.argmax().item()]
         quarter_length = music_features.REVERSE_QUARTER_LENGTH_ENCODING[quarter_length.argmax().item()]
         beat = music_features.REVERSE_BEAT_ENCODING[beat.argmax().item()]
@@ -41,6 +43,7 @@ def detokenize(tokens, time_signature):
         melodic_interval = music_features.REVERSE_MELODIC_INTERVAL_ENCODING[melodic_interval.argmax().item()]
         key_signature = music_features.REVERSE_KEY_SIGNATURE_ENCODING[key_signature.argmax().item()]
         mode = music_features.REVERSE_MODE_ENCODING[mode.argmax().item()]
+        time_signature = music_features.REVERSE_TIME_SIGNATURE_ENCODING[time_signature.argmax().item()]
         letter_name, accidental, octave = letter_accidental_octave.split('|')
         if octave != "None":
             octave = int(float(octave))
@@ -71,6 +74,6 @@ score = music21.corpus.parse('bwv66.6')
 staves = music_featurizer.get_staff_indices(score)
 data = music_featurizer.load_data(score[staves[0]])
 tokens = music_featurizer.make_one_hot_features(data, False)
-new_data = detokenize(tokens, data[0]["time_signature"])
+new_data = detokenize(tokens)
 score1 = music_featurizer.unload_data(new_data)
-score.show()
+score1.show()

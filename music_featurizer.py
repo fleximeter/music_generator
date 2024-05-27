@@ -134,7 +134,7 @@ def load_data(staff) -> list:
                         current_note["beat"] = item.beat                                       # beat (symbolic)
                         current_note["time_signature"] = current_time_signature                # time signature (symbolic)
 
-                        if item.tie is not None and item.tie.type in ["continue", "stop"]:
+                        if item.tie is not None and item.tie.type in ["start", "continue"]:
                             tie_status = True
                         else:
                             dataset.append(current_note)
@@ -246,8 +246,9 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
         melodic_interval_one_hot = F.one_hot(torch.tensor(music_features.MELODIC_INTERVAL_ENCODING[str(instance["melodic_interval"])]), len(music_features.MELODIC_INTERVAL_ENCODING)).float()
         key_signature_one_hot = F.one_hot(torch.tensor(music_features.KEY_SIGNATURE_ENCODING[str(instance["key_signature"])]), len(music_features.KEY_SIGNATURE_ENCODING)).float()
         mode_one_hot = F.one_hot(torch.tensor(music_features.MODE_ENCODING[str(instance["mode"])]), len(music_features.MODE_ENCODING)).float()
+        time_signature_one_hot = F.one_hot(torch.tensor(music_features.TIME_SIGNATURE_ENCODING[str(instance["time_signature"])]), len(music_features.TIME_SIGNATURE_ENCODING)).float()
         instances.append(torch.hstack((letter_accidental_octave_name_one_hot, quarter_length_one_hot, beat_one_hot, 
-                                       pitch_class_one_hot, melodic_interval_one_hot, key_signature_one_hot, mode_one_hot)))
+                                       pitch_class_one_hot, melodic_interval_one_hot, key_signature_one_hot, mode_one_hot, time_signature_one_hot)))
 
     instances = torch.vstack(instances)
     if batched:

@@ -127,10 +127,20 @@ for denominator, step in [(2, 2), (3, 1), (4, 2), (6, 2), (8, 2)]:
             REVERSE_BEAT_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
             idx_quarter_length += 1
 
+TIME_SIGNATURE_ENCODING = {"None": 0}
+REVERSE_TIME_SIGNATURE_ENCODING = {0: "None"}
+
+i = 1
+for j in [1, 2, 3, 4, 6, 8, 9, 12]:
+    for k in [1, 2, 4, 8]:
+        TIME_SIGNATURE_ENCODING[f"{j}/{k}"] = i
+        REVERSE_TIME_SIGNATURE_ENCODING[i] = f"{j}/{k}"
+        i += 1
 
 ###################################################################################################################
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
 ###################################################################################################################
 NUM_FEATURES = len(LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(QUARTER_LENGTH_ENCODING) + len(BEAT_ENCODING) + \
-               len(PITCH_CLASS_ENCODING) + len(MELODIC_INTERVAL_ENCODING) + len(KEY_SIGNATURE_ENCODING)  + len(MODE_ENCODING) 
+               len(PITCH_CLASS_ENCODING) + len(MELODIC_INTERVAL_ENCODING) + len(KEY_SIGNATURE_ENCODING)  + \
+               len(MODE_ENCODING) + len(TIME_SIGNATURE_ENCODING)
 NUM_OUTPUTS = len(LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(QUARTER_LENGTH_ENCODING)
