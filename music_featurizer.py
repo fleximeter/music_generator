@@ -7,6 +7,7 @@ sequences.
 """
 
 import music21
+import music_features
 import torch
 import torch.nn.functional as F
 import math
@@ -16,114 +17,6 @@ from fractions import Fraction
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 from typing import Tuple
-
-
-###################################################################################################################
-# Feature dictionaries
-###################################################################################################################
-
-_LETTER_NAME_ENCODING = {"None": 0, "C": 1, "D": 2, "E": 3, "F": 4, "G": 5, "A": 6, "B": 7}
-_ACCIDENTAL_ENCODING = {"None": 0, "-2.0": 1, "-1.0": 2, "0.0": 3, "1.0": 4, "2.0": 5}
-_ACCIDENTAL_NAME_ENCODING = {"None": 0, 'double-flat': 1, 'double-sharp': 2, 'flat': 3, 'half-flat': 4, 'half-sharp': 5, 
-                             'natural': 6, 'one-and-a-half-flat': 7, 'one-and-a-half-sharp': 8, 'quadruple-flat': 9, 
-                             'quadruple-sharp': 10, 'sharp': 11, 'triple-flat': 12, 'triple-sharp': 13}
-_PITCH_CLASS_ENCODING = {"None": 0}
-_OCTAVE_ENCODING = {"None": 0}
-_PITCH_SPACE_ENCODING = {"None": 0}
-_MELODIC_INTERVAL_ENCODING = {"None": 0}
-_KEY_SIGNATURE_ENCODING = {"None": 0}
-_MODE_ENCODING = {"None": 0, "major": 1, "minor": 2}
-_BEAT_ENCODING = {"None": 0}
-_QUARTER_LENGTH_ENCODING = {"None": 0}
-_LETTER_NAME_REVERSE_ENCODING = {0: "None", 1: "C", 2: "D", 3: "E", 4: "F", 5: "G", 6: "A", 7: "B"}
-_ACCIDENTAL_NAME_REVERSE_ENCODING = {0: "None", 1: 'double-flat', 2: 'double-sharp', 3: 'flat', 4: 'half-flat', 
-                                     5: 'half-sharp', 6: 'natural', 7: 'one-and-a-half-flat', 8: 'one-and-a-half-sharp', 
-                                     9: 'quadruple-flat', 10: 'quadruple-sharp', 11: 'sharp', 12: 'triple-flat', 13: 'triple-sharp'}
-_PITCH_CLASS_REVERSE_ENCODING = {0: "None"}
-_OCTAVE_REVERSE_ENCODING = {0: "None"}
-_PITCH_SPACE_REVERSE_ENCODING = {0: "None"}
-_MELODIC_INTERVAL_REVERSE_ENCODING = {0: "None"}
-_KEY_SIGNATURE_REVERSE_ENCODING = {0: "None"}
-_MODE_REVERSE_ENCODING = {0: "None", 1: "major", 2: "minor"}
-_BEAT_REVERSE_ENCODING = {0: "None"}
-_QUARTER_LENGTH_REVERSE_ENCODING = {0: "None"}
-
-# Lets you convert accidental names to chromatic alteration
-_ACCIDENTAL_NAME_TO_ALTER_ENCODING = {"None": 0.0, 'double-flat': 2.0, 'double-sharp': -2.0, 'flat': 1.0, 'half-flat': 0.5, 'half-sharp': -0.5, 
-                                     'natural': 0.0, 'one-and-a-half-flat': 1.5, 'one-and-a-half-sharp': -1.5, 'quadruple-flat': 4.0, 
-                                     'quadruple-sharp': -4.0, 'sharp': -1.0, 'triple-flat': 3.0, 'triple-sharp': -3.0}
-
-_ACCIDENTAL_ALTER_TO_NAME_ENCODING = {0.0: "None", 2.0: 'double-flat', -2.0: 'double-sharp', 1.0: 'flat', 0.5: 'half-flat', -0.5: 'half-sharp', 
-                                      1.5: 'one-and-a-half-flat', -1.5: 'one-and-a-half-sharp', 4.0: 'quadruple-flat', 
-                                      -4.0: 'quadruple-sharp', -1.0: 'sharp', 3.0: 'triple-flat', -3.0: 'triple-sharp'}
-
-##########################################################################
-# Generate pitch encoding
-##########################################################################
-
-for i in range(1, 128+1):
-    _PITCH_SPACE_ENCODING[str(float(i-1))] = i 
-    _PITCH_SPACE_REVERSE_ENCODING[i] = str(float(i-1))
-
-for i in range(1, 14+1):
-    _OCTAVE_ENCODING[str(i-1)] = i
-    _OCTAVE_REVERSE_ENCODING[i] = str(i-1)
-
-for i in range(1, 12+1):
-    _PITCH_CLASS_ENCODING[str(float(i-1))] = i
-    _PITCH_CLASS_REVERSE_ENCODING[i] = str(float(i-1))
-
-for i in range(1, 128+1):
-    _PITCH_SPACE_ENCODING[str(float(i-1))] = i 
-    _PITCH_SPACE_REVERSE_ENCODING[i] = str(float(i-1))
-
-for i in range(1, 23+1):
-    _MELODIC_INTERVAL_ENCODING[str(float(i-12))] = i 
-    _MELODIC_INTERVAL_REVERSE_ENCODING[i] = str(float(i-12))
-
-for i in range(1, 15+1):
-    _KEY_SIGNATURE_ENCODING[str(i-8)] = i 
-    _KEY_SIGNATURE_REVERSE_ENCODING[i] = str(i-8)
-
-##########################################################################
-# Generate beat and quarter length encoding
-##########################################################################
-
-# This sets the maximum note duration in quarter notes that the model can handle.
-_MAX_QUARTER_LENGTH = 8
-
-idx_quarter_length = 1
-
-# Quarters
-for i in range(1, _MAX_QUARTER_LENGTH):
-    _QUARTER_LENGTH_ENCODING[f"{i}"] = idx_quarter_length
-    _QUARTER_LENGTH_REVERSE_ENCODING[idx_quarter_length] = f"{i}"
-    _BEAT_ENCODING[f"{i}"] = idx_quarter_length
-    _BEAT_REVERSE_ENCODING[idx_quarter_length] = f"{i}"
-    idx_quarter_length += 1
-
-# 8ths, triplet 8ths, 16ths, triplet 16ths, 32nds. The first value
-# in the tuple is the quarter length denominator, and the second value
-# is a step value. The step value helps to avoid duplicate duration
-# values in the encoding. In general it should probably be 2, except 
-# for triplet eighths.
-for denominator, step in [(2, 2), (3, 1), (4, 2), (6, 2), (8, 2)]:
-    for i in range(1, _MAX_QUARTER_LENGTH * denominator, step):
-        # This condition catches duplicate durations for subdivisions of 3 and 6
-        if denominator % 3 != 0 or i % 3 != 0:
-            _QUARTER_LENGTH_ENCODING[f"{i}/{denominator}"] = idx_quarter_length
-            _QUARTER_LENGTH_REVERSE_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
-            _BEAT_ENCODING[f"{i}/{denominator}"] = idx_quarter_length
-            _BEAT_REVERSE_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
-            idx_quarter_length += 1
-
-
-###################################################################################################################
-# The total number of features and outputs for the model. This can change from time to time, and must be updated!
-###################################################################################################################
-_NUM_FEATURES = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + \
-                len(_BEAT_ENCODING) + len(_PITCH_CLASS_ENCODING) + len(_MELODIC_INTERVAL_ENCODING) + len(_KEY_SIGNATURE_ENCODING)  + len(_MODE_ENCODING) 
-_NUM_OUTPUTS = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
 ###################################################################################################################
@@ -146,8 +39,8 @@ def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octav
         note["octave"] = int(float(octave))
         note["letter_name"] = letter_name
         note["accidental_name"] = accidental_name
-        note["accidental"] = _ACCIDENTAL_NAME_TO_ALTER_ENCODING[accidental_name]
-        note["pitch_class_id"] = (PC_MAP[letter_name] + _ACCIDENTAL_NAME_TO_ALTER_ENCODING[accidental_name]) % 12
+        note["accidental"] = music_features.ACCIDENTAL_NAME_TO_ALTER_ENCODING[accidental_name]
+        note["pitch_class_id"] = (PC_MAP[letter_name] + music_features.ACCIDENTAL_NAME_TO_ALTER_ENCODING[accidental_name]) % 12
         note["ps"] = note["pitch_class_id"] + (note["octave"] + 1) * 12
     else:
         note["octave"] = "None"
@@ -181,7 +74,7 @@ def convert_pc_octave_to_note(pc, octave) -> dict:
         note["letter_name"], accidental_alter = PC_MAP[int(pc)]
         accidental_alter -= microtone
         note["accidental"] = accidental_alter
-        note["accidental_name"] = _ACCIDENTAL_ALTER_TO_NAME_ENCODING[accidental_alter]
+        note["accidental_name"] = music_features.ACCIDENTAL_ALTER_TO_NAME_ENCODING[accidental_alter]
     else:
         note["octave"] = "None"
         note["pitch_class_id"] = "None"
@@ -190,7 +83,7 @@ def convert_pc_octave_to_note(pc, octave) -> dict:
         note["accidental"] = "None"
         note["accidental_name"] = "None"
 
-    return note    
+    return note
 
 
 def get_staff_indices(score) -> list:
@@ -238,6 +131,7 @@ def load_data(staff) -> list:
                         # accidental (symbolic)
                         current_note["accidental_name"] = item.pitch.accidental.name if item.pitch.accidental is not None else "None"
                         current_note["accidental"] = item.pitch.accidental.alter if item.pitch.accidental is not None else 0.0
+                        current_note["letter_accidental_name"] = f"{current_note["letter_name"]}|{current_note["accidental_name"]}"
                         current_note["pitch_class_id"] = float(item.pitch.pitchClass)          # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                         current_note["key_signature"] = current_key                            # key signature
                         current_note["mode"] = current_mode                                    # mode
@@ -265,6 +159,7 @@ def load_data(staff) -> list:
                     current_note["octave"] = "None"                              # MIDI number (symbolic x257)
                     current_note["letter_name"] = "None"                         # letter name (C, D, E, ...) (symbolic x8)
                     current_note["accidental_name"] = "None"                     # accidental name ("sharp", etc.) (symbolic)
+                    current_note["letter_accidental_name"] = "None"
                     current_note["accidental"] = "None"                          # accidental alter value (symbolic)
                     current_note["pitch_class_id"] = "None"                      # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                     current_note["key_signature"] = current_key                  # key signature
@@ -298,21 +193,19 @@ def make_labels(x) -> list:
     Dimension 2 is the total sequence length
     Dimension 3 is the features of individual notes in the sequence
     :param x: A list of sequences
-    :return: A list of label tuples. Each label tuple has 4 labels (letter name, accidental name, octave, quarter length).
+    :return: A list of label tuples. Each label tuple has 3 labels (letter name + accidental name, octave, quarter length).
     """
     y = []
     for sequence in x:
         i = (
-            (0, len(_LETTER_NAME_ENCODING)), 
-            (len(_LETTER_NAME_ENCODING), len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING)),
-            (len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING), len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING)),
-            (len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING), len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING))
-        )
-        letter_name = sequence[-1, i[0][0]:i[0][1]]
-        accidental_name = sequence[-1, i[1][0]:i[1][1]]
-        octave = sequence[-1, i[2][0]:i[2][1]]
-        quarter_length = sequence[-1, i[3][0]:i[3][1]]
-        y.append((letter_name.argmax().item(), accidental_name.argmax().item(), octave.argmax().item(), quarter_length.argmax().item()))
+            (0, len(music_features.LETTER_ACCIDENTAL_ENCODING)), 
+            (len(music_features.LETTER_ACCIDENTAL_ENCODING), len(music_features.LETTER_ACCIDENTAL_ENCODING) + len(music_features.OCTAVE_ENCODING)),
+            (len(music_features.LETTER_ACCIDENTAL_ENCODING) + len(music_features.OCTAVE_ENCODING), len(music_features.LETTER_ACCIDENTAL_ENCODING) + len(music_features.OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING)),
+            )
+        letter_accidental = sequence[-1, i[0][0]:i[0][1]]
+        octave = sequence[-1, i[1][0]:i[1][1]]
+        quarter_length = sequence[-1, i[2][0]:i[2][1]]
+        y.append((letter_accidental.argmax().item(), octave.argmax().item(), quarter_length.argmax().item()))
     return y
 
 
@@ -348,22 +241,21 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
     instances = []
     for instance in dataset:
         # One-hots
-        letter_name_one_hot = F.one_hot(torch.tensor(_LETTER_NAME_ENCODING[str(instance["letter_name"])]), len(_LETTER_NAME_ENCODING)).float()
-        accidental_name_one_hot = F.one_hot(torch.tensor(_ACCIDENTAL_NAME_ENCODING[str(instance["accidental_name"])]), len(_ACCIDENTAL_NAME_ENCODING)).float()
-        octave_one_hot = F.one_hot(torch.tensor(_OCTAVE_ENCODING[str(instance["octave"])]), len(_OCTAVE_ENCODING)).float()
+        letter_accidental_name_one_hot = F.one_hot(torch.tensor(music_features.LETTER_ACCIDENTAL_ENCODING[str(instance["letter_accidental_name"])]), len(music_features.LETTER_ACCIDENTAL_ENCODING)).float()
+        octave_one_hot = F.one_hot(torch.tensor(music_features.OCTAVE_ENCODING[str(instance["octave"])]), len(music_features.OCTAVE_ENCODING)).float()
         if instance["quarterLength"] == "None":
-            quarter_length_one_hot = F.one_hot(torch.tensor(_QUARTER_LENGTH_ENCODING[str(instance["quarterLength"])]), len(_QUARTER_LENGTH_ENCODING)).float()
+            quarter_length_one_hot = F.one_hot(torch.tensor(music_features.QUARTER_LENGTH_ENCODING[str(instance["quarterLength"])]), len(music_features.QUARTER_LENGTH_ENCODING)).float()
         else:
-            quarter_length_one_hot = F.one_hot(torch.tensor(_QUARTER_LENGTH_ENCODING[str(Fraction(instance["quarterLength"]))]), len(_QUARTER_LENGTH_ENCODING)).float()
+            quarter_length_one_hot = F.one_hot(torch.tensor(music_features.QUARTER_LENGTH_ENCODING[str(Fraction(instance["quarterLength"]))]), len(music_features.QUARTER_LENGTH_ENCODING)).float()
         if instance["beat"] == "None":
-            beat_one_hot = F.one_hot(torch.tensor(_BEAT_ENCODING[str(instance["beat"])]), len(_BEAT_ENCODING)).float()
+            beat_one_hot = F.one_hot(torch.tensor(music_features.BEAT_ENCODING[str(instance["beat"])]), len(music_features.BEAT_ENCODING)).float()
         else:
-            beat_one_hot = F.one_hot(torch.tensor(_BEAT_ENCODING[str(Fraction(instance["beat"]))]), len(_BEAT_ENCODING)).float()
-        pitch_class_one_hot = F.one_hot(torch.tensor(_PITCH_CLASS_ENCODING[str(instance["pitch_class_id"])]), len(_PITCH_CLASS_ENCODING)).float()
-        melodic_interval_one_hot = F.one_hot(torch.tensor(_MELODIC_INTERVAL_ENCODING[str(instance["melodic_interval"])]), len(_MELODIC_INTERVAL_ENCODING)).float()
-        key_signature_one_hot = F.one_hot(torch.tensor(_KEY_SIGNATURE_ENCODING[str(instance["key_signature"])]), len(_KEY_SIGNATURE_ENCODING)).float()
-        mode_one_hot = F.one_hot(torch.tensor(_MODE_ENCODING[str(instance["mode"])]), len(_MODE_ENCODING)).float()
-        instances.append(torch.hstack((letter_name_one_hot, accidental_name_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, 
+            beat_one_hot = F.one_hot(torch.tensor(music_features.BEAT_ENCODING[str(Fraction(instance["beat"]))]), len(music_features.BEAT_ENCODING)).float()
+        pitch_class_one_hot = F.one_hot(torch.tensor(music_features.PITCH_CLASS_ENCODING[str(instance["pitch_class_id"])]), len(music_features.PITCH_CLASS_ENCODING)).float()
+        melodic_interval_one_hot = F.one_hot(torch.tensor(music_features.MELODIC_INTERVAL_ENCODING[str(instance["melodic_interval"])]), len(music_features.MELODIC_INTERVAL_ENCODING)).float()
+        key_signature_one_hot = F.one_hot(torch.tensor(music_features.KEY_SIGNATURE_ENCODING[str(instance["key_signature"])]), len(music_features.KEY_SIGNATURE_ENCODING)).float()
+        mode_one_hot = F.one_hot(torch.tensor(music_features.MODE_ENCODING[str(instance["mode"])]), len(music_features.MODE_ENCODING)).float()
+        instances.append(torch.hstack((letter_accidental_name_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, 
                                        pitch_class_one_hot, melodic_interval_one_hot, key_signature_one_hot, mode_one_hot)))
 
     instances = torch.vstack(instances)
@@ -378,8 +270,12 @@ def retrieve_class_dictionary(prediction: tuple) -> dict:
     :param prediction: The prediction tuple
     :return: The prediction dictionary
     """
-    note = {"quarterLength": Fraction(_QUARTER_LENGTH_REVERSE_ENCODING[prediction[3]])}
-    note.update(convert_letter_accidental_octave_to_note(_LETTER_NAME_REVERSE_ENCODING[prediction[0]], _ACCIDENTAL_NAME_REVERSE_ENCODING[prediction[1]], _OCTAVE_REVERSE_ENCODING[prediction[2]]))
+    letter_name_accidental = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
+    letter, accidental = letter_name_accidental.split('|')
+    note = {"letter_name_accidental": letter_name_accidental, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[2]])}
+    note.update(convert_letter_accidental_octave_to_note(music_features.REVERSE_LETTER_NAME_ENCODING[letter], 
+                                                         music_features.REVERSE_ACCIDENTAL_NAME_ENCODING[accidental], 
+                                                         music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]))
     return note
 
 
@@ -521,14 +417,13 @@ class MusicXMLDataSet(Dataset):
         """
         # Sort the batch in order of sequence length. This is required by the pack_padded_sequences function. 
         batch.sort(key=lambda x: len(x[0]), reverse=True)
-        sequences, targets1, targets2, targets3, targets4 = zip(*batch)
+        sequences, targets1, targets2, targets3 = zip(*batch)
         lengths = torch.tensor([seq.shape[0] for seq in sequences])
         sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)
         targets1 = torch.tensor(targets1)
         targets2 = torch.tensor(targets2)
         targets3 = torch.tensor(targets3)
-        targets4 = torch.tensor(targets4)
-        return sequences_padded, targets1, targets2, targets3, targets4, lengths
+        return sequences_padded, targets1, targets2, targets3, lengths
     
     def prepare_prediction(sequence, max_length):
         """

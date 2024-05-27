@@ -18,7 +18,7 @@ class LSTMMusic(nn.Module):
     Dimension 3 size: Number of features
     
     There are three outputs:
-    y1: pitch class logits
+    y1: letter, accidental name logits
     y2: octave logits
     y3: quarter length logits
     """
@@ -37,10 +37,9 @@ class LSTMMusic(nn.Module):
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
 
         # The output layers
-        self.output_letter_name = nn.Linear(hidden_size, output_sizes[0])
-        self.output_accidental_name = nn.Linear(hidden_size, output_sizes[1])
-        self.output_octave = nn.Linear(hidden_size, output_sizes[2])
-        self.output_quarter_length = nn.Linear(hidden_size, output_sizes[3])
+        self.output_letter_accidental_name = nn.Linear(hidden_size, output_sizes[0])
+        self.output_octave = nn.Linear(hidden_size, output_sizes[1])
+        self.output_quarter_length = nn.Linear(hidden_size, output_sizes[2])
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.device = device
@@ -56,8 +55,8 @@ class LSTMMusic(nn.Module):
         :param x: The batch of sequences
         :param lengths: A Tensor with sequence lengths for the corresponding sequences
         :param hidden_states: A tuple of hidden state matrices
-        :return (y1, y2, y3, y4), hidden: Returns a logit tuple
-        (letter name logits, accidental name logits, octave logits, quarter length logits) and updated hidden states
+        :return (y1, y2, y3), hidden: Returns a logit tuple
+        (letter accidental name logits, octave logits, quarter length logits) and updated hidden states
         """
         # pack the input, run it through the model, and unpack it
         packed_input = pack_padded_sequence(x, lengths, batch_first=True)
@@ -69,11 +68,10 @@ class LSTMMusic(nn.Module):
         last_output = output.gather(1, idx).squeeze(1)
         
         # run the LSTM output through the final layers to generate the logits
-        letter_name_logits = self.output_letter_name(last_output)
-        accidental_name_logits = self.output_accidental_name(last_output)
+        letter_accidental_name_logits = self.output_letter_accidental_name(last_output)
         octave_logits = self.output_octave(last_output)
         quarter_length_logits = self.output_quarter_length(last_output)
-        return (letter_name_logits, accidental_name_logits, octave_logits, quarter_length_logits), hidden_states
+        return (letter_accidental_name_logits, octave_logits, quarter_length_logits), hidden_states
     
     def init_hidden(self, batch_size=1):
         """
