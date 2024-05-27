@@ -123,7 +123,7 @@ if __name__ == "__main__":
     #######################################################################################
     
     PATH = "./data/train"             # The path to the training corpus
-    FILE_NAME = "./data/model11.json"  # The path to the model metadata JSON file
+    FILE_NAME = "./data/model12.json"  # The path to the model metadata JSON file
     RETRAIN = False                   # Whether or not to continue training the same model
     NUM_EPOCHS = 800                  # The number of epochs to train
     LEARNING_RATE = 0.001             # The model learning rate
@@ -132,11 +132,11 @@ if __name__ == "__main__":
     model_metadata = {
         "model_name": "bach",
         "training_sequence_min_length": 2,
-        "training_sequence_max_length": 20,
-        "num_layers": 4,
+        "training_sequence_max_length": 30,
+        "num_layers": 6,
         "hidden_size": 1024,
         "batch_size": 200,
-        "state_dict": "./data/music_sequencer_11.pth",
+        "state_dict": "./data/music_sequencer_12.pth",
         "num_features": music_features.NUM_FEATURES,
         "output_sizes": [
             len(music_features.LETTER_ACCIDENTAL_ENCODING), len(music_features.OCTAVE_ENCODING), 

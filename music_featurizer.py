@@ -234,7 +234,7 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
     instances = []
     for instance in dataset:
         # One-hots
-        letter_accidental_name_one_hot = F.one_hot(torch.tensor(music_features.LETTER_ACCIDENTAL_ENCODING[str(instance["letter_accidental_name"])]), len(music_features.LETTER_ACCIDENTAL_ENCODING)).float()
+        letter_accidental_name_one_hot = F.one_hot(torch.tensor(music_features.LETTER_ACCIDENTAL_ENCODING[instance["letter_accidental_name"]]), len(music_features.LETTER_ACCIDENTAL_ENCODING)).float()
         octave_one_hot = F.one_hot(torch.tensor(music_features.OCTAVE_ENCODING[str(instance["octave"])]), len(music_features.OCTAVE_ENCODING)).float()
         if instance["quarterLength"] == "None":
             quarter_length_one_hot = F.one_hot(torch.tensor(music_features.QUARTER_LENGTH_ENCODING[str(instance["quarterLength"])]), len(music_features.QUARTER_LENGTH_ENCODING)).float()
@@ -263,12 +263,10 @@ def retrieve_class_dictionary(prediction: tuple) -> dict:
     :param prediction: The prediction tuple
     :return: The prediction dictionary
     """
-    letter_name_accidental = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
-    letter, accidental = letter_name_accidental.split('|')
-    note = {"letter_name_accidental": letter_name_accidental, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[2]])}
-    note.update(convert_letter_accidental_octave_to_note(music_features.REVERSE_LETTER_NAME_ENCODING[letter], 
-                                                         music_features.REVERSE_ACCIDENTAL_NAME_ENCODING[accidental], 
-                                                         music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]))
+    letter_accidental_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
+    letter, accidental = letter_accidental_name.split('|')
+    note = {"letter_accidental_name": letter_accidental_name, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[2]])}
+    note.update(convert_letter_accidental_octave_to_note(letter, accidental, music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]))
     return note
 
 
