@@ -4,7 +4,6 @@ File: dataset.py
 This module has a dataset class for storing sequences.
 """
 
-import music21
 import music_featurizer
 import torch
 from torch.utils.data import Dataset
@@ -22,17 +21,17 @@ class MusicXMLDataSet(Dataset):
     vary, it is necessary to provide a collate function to the DataLoader, and a
     collate function is provided as a static function in this class.
     """
-    def __init__(self, file_list, min_sequence_length, max_sequence_length):
+    def __init__(self, score_list, min_sequence_length, max_sequence_length):
         """
         Makes a MusicXMLDataSet
-        :param file_list: A list of MusicXML files to turn into a dataset
+        :param score_list: A list of music21 scores to turn into a dataset
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length
         """
         super(MusicXMLDataSet, self).__init__()
         self.min_sequence_length = min_sequence_length
         self.max_sequence_length = max_sequence_length
-        self.data, self.labels = self._load_data(file_list)
+        self.data, self.labels = self._load_data(score_list)
         
     def __len__(self) -> int:
         """
@@ -50,16 +49,14 @@ class MusicXMLDataSet(Dataset):
         label = self.labels[idx]
         return sample, *label
     
-    def _load_data(self, file_list) -> Tuple[list, list]:
+    def _load_data(self, score_list) -> Tuple[list, list]:
         """
         Parses each MusicXML file and generates sequences and labels from it
-        :param file_list: A list of MusicXML files to turn into a dataset
+        :param score_list: A list of MusicXML files to turn into a dataset
         """
         sequences = []
         labels = []
-        for file in file_list:
-            score = music21.corpus.parse(file)
-
+        for score in score_list:
             # Go through each staff in each score, and generate individual
             # sequences and labels for that staff
             for i in music_featurizer.get_staff_indices(score):

@@ -8,10 +8,12 @@ to disk. The training function will output status messages and save periodically
 
 import dataset
 import datetime
+import itertools
 import json
 import music_features
-import music_finder
+import music_corpus
 import music_generator
+import music21
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -160,9 +162,22 @@ if __name__ == "__main__":
         pass
 
     # Get the corpus and prepare it as a dataset
-    # files = music_finder.prepare_directory(PATH, device)
-    files = music_finder.get_m21_corpus('bach')
-    
+    # scores = music_finder.prepare_directory(PATH, device)
+    scores = music_corpus.get_m21_corpus('bach')
+
+    # essen folksongs
+    """
+    opus = [list(op.scores) for op in [
+        music21.corpus.parse("essenFolksong/altdeu10.abc"), music21.corpus.parse("essenFolksong/altdeu20.abc"),
+        music21.corpus.parse("essenFolksong/ballad10.abc"), music21.corpus.parse("essenFolksong/ballad20.abc"),
+        music21.corpus.parse("essenFolksong/ballad30.abc"), music21.corpus.parse("essenFolksong/ballad40.abc"),
+        music21.corpus.parse("essenFolksong/ballad50.abc"), music21.corpus.parse("essenFolksong/ballad60.abc"),
+        music21.corpus.parse("essenFolksong/ballad70.abc"), music21.corpus.parse("essenFolksong/ballad80.abc"),
+        music21.corpus.parse("essenFolksong/boehme10.abc"), music21.corpus.parse("essenFolksong/boehme20.abc")
+    ]]
+    scores = list(itertools.chain.from_iterable(opus))
+    """
+
     #######################################################################################
     # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
     #######################################################################################
@@ -171,7 +186,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    sequence_dataset = dataset.MusicXMLDataSet(files, model_metadata["training_sequence_min_length"], 
+    sequence_dataset = dataset.MusicXMLDataSet(scores, model_metadata["training_sequence_min_length"], 
                                                model_metadata["training_sequence_max_length"])
     dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=8)
         
