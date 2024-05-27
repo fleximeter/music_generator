@@ -6,10 +6,10 @@ scratch, or you can choose to continue training a model that was previously save
 to disk. The training function will output status messages and save periodically.
 """
 
+import dataset
 import datetime
 import json
 import music_features
-import music_featurizer
 import music_finder
 import music_generator
 import torch
@@ -165,9 +165,9 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    dataset = music_featurizer.MusicXMLDataSet(files, model_metadata["training_sequence_min_length"], 
+    sequence_dataset = dataset.MusicXMLDataSet(files, model_metadata["training_sequence_min_length"], 
                                                model_metadata["training_sequence_max_length"])
-    dataloader = DataLoader(dataset, model_metadata["batch_size"], True, collate_fn=music_featurizer.MusicXMLDataSet.collate, num_workers=8)
+    dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=8)
         
     # Load and prepare the model. If retraining the model, we will need to load the
     # previous state dictionary so that we aren't training from scratch.

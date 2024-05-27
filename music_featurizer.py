@@ -14,14 +14,7 @@ import math
 import xml_gen
 import numpy as np
 from fractions import Fraction
-from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pad_sequence
-from typing import Tuple
 
-
-###################################################################################################################
-# Functions for featurization
-###################################################################################################################
 
 def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octave) -> dict:
     """
@@ -341,101 +334,3 @@ def update_note_based_on_previous(note, previous_notes):
             if previous_notes[i]["ps"] != "None":
                 note["melodic_interval"] = (note["ps"] - previous_notes[i]["ps"]) % 12
                 break
-
-
-class MusicXMLDataSet(Dataset):
-    """
-    Makes a dataset of sequenced notes based on a music XML corpus. This dataset
-    will make sequences of notes and labels for the next note in the sequence,
-    for generative training. It will exhaustively make sequences between a specified
-    minimum sequence length and maximum sequence length, and these sequences should
-    be provided to a DataLoader in shuffled fashion. Because the sequence lengths
-    vary, it is necessary to provide a collate function to the DataLoader, and a
-    collate function is provided as a static function in this class.
-    """
-    def __init__(self, file_list, min_sequence_length, max_sequence_length):
-        """
-        Makes a MusicXMLDataSet
-        :param file_list: A list of MusicXML files to turn into a dataset
-        :param min_sequence_length: The minimum sequence length
-        :param max_sequence_length: The maximum sequence length
-        """
-        super(MusicXMLDataSet, self).__init__()
-        self.min_sequence_length = min_sequence_length
-        self.max_sequence_length = max_sequence_length
-        self.data, self.labels = self._load_data(file_list)
-        
-    def __len__(self) -> int:
-        """
-        Gets the number of entries in the dataset
-        :return: The number of entries in the dataset
-        """
-        return len(self.data)
-    
-    def __getitem__(self, idx):
-        """
-        Gets the next item and label in the dataset
-        :return: sample, label
-        """
-        sample = self.data[idx]
-        label = self.labels[idx]
-        return sample, *label
-    
-    def _load_data(self, file_list) -> Tuple[list, list]:
-        """
-        Parses each MusicXML file and generates sequences and labels from it
-        :param file_list: A list of MusicXML files to turn into a dataset
-        """
-        sequences = []
-        labels = []
-        for file in file_list:
-            score = music21.corpus.parse(file)
-
-            # Go through each staff in each score, and generate individual
-            # sequences and labels for that staff
-            for i in get_staff_indices(score):
-                data = load_data(score[i])
-                data = make_one_hot_features(data, False)
-                for j in range(self.min_sequence_length, self.max_sequence_length + 1):
-                    seq = make_n_gram_sequences(data, j+1)
-                    lab = make_labels(seq)
-
-                    # trim the last entry off the sequence, because it is the label
-                    sequences += [s[:-1, :] for s in seq]
-                    labels += lab
-
-        return sequences, labels
-    
-    def collate(batch):
-        """
-        Pads a batch in preparation for training. This is necessary
-        because we expect the dataloader to randomize the data, which will
-        mix sequences of different lengths. We will pad these sequences with empty
-        entries so we can run everything through the model at the same time.
-        :param batch: A batch produced by a DataLoader
-        :return: The padded sequences, labels, and sequence lengths
-        """
-        # Sort the batch in order of sequence length. This is required by the pack_padded_sequences function. 
-        batch.sort(key=lambda x: len(x[0]), reverse=True)
-        sequences, targets1, targets2, targets3 = zip(*batch)
-        lengths = torch.tensor([seq.shape[0] for seq in sequences])
-        sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)
-        targets1 = torch.tensor(targets1)
-        targets2 = torch.tensor(targets2)
-        targets3 = torch.tensor(targets3)
-        return sequences_padded, targets1, targets2, targets3, lengths
-    
-    def prepare_prediction(sequence, max_length):
-        """
-        Prepares a sequence for prediction. This function does the padding process
-        just like the collate function, so the model behaves as expected.
-        :param sequence: The sequence to prepare
-        :param max_length: The maximum sequence length the model was trained on
-        :return: The padded sequence and a list of lengths
-        """
-        lengths = torch.tensor([sequence.shape[1]])
-        if sequence.shape[1] < max_length:
-            zeros = torch.zeros((1, max_length - sequence.shape[1], sequence.shape[2]))
-            sequence = torch.cat((sequence, zeros), dim=1)
-        return sequence, lengths
-    
