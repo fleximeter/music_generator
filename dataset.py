@@ -86,13 +86,12 @@ class MusicXMLDataSet(Dataset):
         """
         # Sort the batch in order of sequence length. This is required by the pack_padded_sequences function. 
         batch.sort(key=lambda x: len(x[0]), reverse=True)
-        sequences, targets1, targets2, targets3 = zip(*batch)
+        sequences, targets1, targets2 = zip(*batch)
         lengths = torch.tensor([seq.shape[0] for seq in sequences])
         sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)
         targets1 = torch.tensor(targets1)
         targets2 = torch.tensor(targets2)
-        targets3 = torch.tensor(targets3)
-        return sequences_padded, targets1, targets2, targets3, lengths
+        return sequences_padded, targets1, targets2, lengths
     
     def prepare_prediction(sequence, max_length):
         """

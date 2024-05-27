@@ -192,14 +192,12 @@ def make_labels(x) -> list:
     y = []
     for sequence in x:
         i = (
-            (0, len(music_features.LETTER_ACCIDENTAL_ENCODING)), 
-            (len(music_features.LETTER_ACCIDENTAL_ENCODING), len(music_features.LETTER_ACCIDENTAL_ENCODING) + len(music_features.OCTAVE_ENCODING)),
-            (len(music_features.LETTER_ACCIDENTAL_ENCODING) + len(music_features.OCTAVE_ENCODING), len(music_features.LETTER_ACCIDENTAL_ENCODING) + len(music_features.OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING)),
+            (0, len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING)), 
+            (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING))
             )
-        letter_accidental = sequence[-1, i[0][0]:i[0][1]]
-        octave = sequence[-1, i[1][0]:i[1][1]]
-        quarter_length = sequence[-1, i[2][0]:i[2][1]]
-        y.append((letter_accidental.argmax().item(), octave.argmax().item(), quarter_length.argmax().item()))
+        letter_accidental_octave = sequence[-1, i[0][0]:i[0][1]]
+        quarter_length = sequence[-1, i[1][0]:i[1][1]]
+        y.append((letter_accidental_octave.argmax().item(), quarter_length.argmax().item()))
     return y
 
 
@@ -235,7 +233,7 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
     instances = []
     for instance in dataset:
         # One-hots
-        letter_accidental_name_one_hot = F.one_hot(torch.tensor(music_features.LETTER_ACCIDENTAL_ENCODING[instance["letter_accidental_name"]]), len(music_features.LETTER_ACCIDENTAL_ENCODING)).float()
+        letter_accidental_octave_name_one_hot = F.one_hot(torch.tensor(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING[instance["letter_accidental_octave_name"]]), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING)).float()
         octave_one_hot = F.one_hot(torch.tensor(music_features.OCTAVE_ENCODING[str(instance["octave"])]), len(music_features.OCTAVE_ENCODING)).float()
         if instance["quarterLength"] == "None":
             quarter_length_one_hot = F.one_hot(torch.tensor(music_features.QUARTER_LENGTH_ENCODING[str(instance["quarterLength"])]), len(music_features.QUARTER_LENGTH_ENCODING)).float()
@@ -249,7 +247,7 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
         melodic_interval_one_hot = F.one_hot(torch.tensor(music_features.MELODIC_INTERVAL_ENCODING[str(instance["melodic_interval"])]), len(music_features.MELODIC_INTERVAL_ENCODING)).float()
         key_signature_one_hot = F.one_hot(torch.tensor(music_features.KEY_SIGNATURE_ENCODING[str(instance["key_signature"])]), len(music_features.KEY_SIGNATURE_ENCODING)).float()
         mode_one_hot = F.one_hot(torch.tensor(music_features.MODE_ENCODING[str(instance["mode"])]), len(music_features.MODE_ENCODING)).float()
-        instances.append(torch.hstack((letter_accidental_name_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, 
+        instances.append(torch.hstack((letter_accidental_octave_name_one_hot, quarter_length_one_hot, beat_one_hot, 
                                        pitch_class_one_hot, melodic_interval_one_hot, key_signature_one_hot, mode_one_hot)))
 
     instances = torch.vstack(instances)
@@ -264,13 +262,13 @@ def retrieve_class_dictionary(prediction: tuple) -> dict:
     :param prediction: The prediction tuple
     :return: The prediction dictionary
     """
-    # letter_accidental_octave_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
-    # letter, accidental, octave = letter_accidental_octave_name.split('|')
-    # note = {"letter_accidental_octave_name": letter_accidental_octave_name, letter_accidental_name: f"{letter}|{accidental}", "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
-    letter_accidental_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
-    letter, accidental = letter_accidental_name.split('|')
-    octave = music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]
-    note = {"letter_accidental_octave_name": f"{letter_accidental_name}|{octave}", "letter_accidental_name": letter_accidental_name, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
+    letter_accidental_octave_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
+    letter, accidental, octave = letter_accidental_octave_name.split('|')
+    note = {"letter_accidental_octave_name": letter_accidental_octave_name, "letter_accidental_name": f"{letter}|{accidental}", "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
+    # letter_accidental_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
+    # letter, accidental = letter_accidental_name.split('|')
+    # octave = music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]
+    # note = {"letter_accidental_octave_name": f"{letter_accidental_name}|{octave}", "letter_accidental_name": letter_accidental_name, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
     note.update(convert_letter_accidental_octave_to_note(letter, accidental, octave))
     return note
 

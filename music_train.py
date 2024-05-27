@@ -50,16 +50,18 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
         num_batches_this_epoch = 0
 
         # Iterate through each batch in the dataloader. The batch will have 3 labels per sequence.
-        for x, y1, y2, y3, lengths in dataloader:
+        for x, y1, y2, lengths in dataloader:
             optimizer.zero_grad()
 
             # Prepare for running through the net
             x = x.to(device)
             y1 = y1.to(device)
             y2 = y2.to(device)
-            y3 = y3.to(device)
-            y = (y1, y2, y3)
+            y = (y1, y2)
             hidden = model.init_hidden(x.shape[0])
+            
+            # This is necessary because of the size of the output labels.
+            model.lstm.flatten_parameters()
 
             # Run the current batch through the net
             output, _ = model(x, lengths, hidden)
@@ -123,9 +125,9 @@ if __name__ == "__main__":
     #######################################################################################
     
     PATH = "./data/train"              # The path to the training corpus
-    FILE_NAME = "./data/model12.json"  # The path to the model metadata JSON file
-    RETRAIN = True                     # Whether or not to continue training the same model
-    NUM_EPOCHS = 800                   # The number of epochs to train
+    FILE_NAME = "./data/model13.json"  # The path to the model metadata JSON file
+    RETRAIN = False                     # Whether or not to continue training the same model
+    NUM_EPOCHS = 100                   # The number of epochs to train
     LEARNING_RATE = 0.001              # The model learning rate
     
     # The model metadata - save to JSON file
@@ -133,14 +135,12 @@ if __name__ == "__main__":
         "model_name": "bach",
         "training_sequence_min_length": 2,
         "training_sequence_max_length": 30,
-        "num_layers": 6,
+        "num_layers": 4,
         "hidden_size": 1024,
         "batch_size": 200,
-        "state_dict": "./data/music_sequencer_12.pth",
+        "state_dict": "./data/music_sequencer_13.pth",
         "num_features": music_features.NUM_FEATURES,
-        "output_sizes": [
-            len(music_features.LETTER_ACCIDENTAL_ENCODING), len(music_features.OCTAVE_ENCODING), 
-            len(music_features.QUARTER_LENGTH_ENCODING)]
+        "output_sizes": [len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(music_features.QUARTER_LENGTH_ENCODING)]
     }
     with open(FILE_NAME, "w") as model_json_file:
         model_json_file.write(json.dumps(model_metadata))
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
     loss_fn = [nn.CrossEntropyLoss() for i in range(len(model_metadata["output_sizes"]))]
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    loss_weights = torch.tensor([1.0, 1.0, 1.0])  # emphasize the loss of the accidental
+    loss_weights = torch.tensor([1.0, 1.0])  # emphasize the loss of the accidental
     loss_weights = loss_weights * loss_weights.numel() / torch.sum(loss_weights)   # normalize the loss weights
 
     # Train the model

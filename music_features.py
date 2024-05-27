@@ -131,6 +131,6 @@ for denominator, step in [(2, 2), (3, 1), (4, 2), (6, 2), (8, 2)]:
 ###################################################################################################################
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
 ###################################################################################################################
-NUM_FEATURES = len(LETTER_ACCIDENTAL_ENCODING) + len(OCTAVE_ENCODING) + len(QUARTER_LENGTH_ENCODING) + len(BEAT_ENCODING) + \
+NUM_FEATURES = len(LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(QUARTER_LENGTH_ENCODING) + len(BEAT_ENCODING) + \
                len(PITCH_CLASS_ENCODING) + len(MELODIC_INTERVAL_ENCODING) + len(KEY_SIGNATURE_ENCODING)  + len(MODE_ENCODING) 
-NUM_OUTPUTS = len(LETTER_ACCIDENTAL_ENCODING) + len(OCTAVE_ENCODING) + len(QUARTER_LENGTH_ENCODING)
+NUM_OUTPUTS = len(LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(QUARTER_LENGTH_ENCODING)

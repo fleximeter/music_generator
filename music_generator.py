@@ -37,9 +37,8 @@ class LSTMMusic(nn.Module):
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
 
         # The output layers
-        self.output_letter_accidental_name = nn.Linear(hidden_size, output_sizes[0])
-        self.output_octave = nn.Linear(hidden_size, output_sizes[1])
-        self.output_quarter_length = nn.Linear(hidden_size, output_sizes[2])
+        self.output_letter_accidental_octave_name = nn.Linear(hidden_size, output_sizes[0])
+        self.output_quarter_length = nn.Linear(hidden_size, output_sizes[-1])
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.device = device
@@ -68,10 +67,9 @@ class LSTMMusic(nn.Module):
         last_output = output.gather(1, idx).squeeze(1)
         
         # run the LSTM output through the final layers to generate the logits
-        letter_accidental_name_logits = self.output_letter_accidental_name(last_output)
-        octave_logits = self.output_octave(last_output)
+        letter_accidental_octave_name_logits = self.output_letter_accidental_octave_name(last_output)
         quarter_length_logits = self.output_quarter_length(last_output)
-        return (letter_accidental_name_logits, octave_logits, quarter_length_logits), hidden_states
+        return (letter_accidental_octave_name_logits, quarter_length_logits), hidden_states
     
     def init_hidden(self, batch_size=1):
         """
