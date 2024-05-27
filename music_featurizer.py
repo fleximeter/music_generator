@@ -27,20 +27,22 @@ _ACCIDENTAL_ENCODING = {"None": 0, "-2.0": 1, "-1.0": 2, "0.0": 3, "1.0": 4, "2.
 _ACCIDENTAL_NAME_ENCODING = {"None": 0, 'double-flat': 1, 'double-sharp': 2, 'flat': 3, 'half-flat': 4, 'half-sharp': 5, 
                              'natural': 6, 'one-and-a-half-flat': 7, 'one-and-a-half-sharp': 8, 'quadruple-flat': 9, 
                              'quadruple-sharp': 10, 'sharp': 11, 'triple-flat': 12, 'triple-sharp': 13}
-_PITCH_SPACE_ENCODING = {"None": 0}
-_OCTAVE_ENCODING = {"None": 0}
 _PITCH_CLASS_ENCODING = {"None": 0}
+_OCTAVE_ENCODING = {"None": 0}
+_PITCH_SPACE_ENCODING = {"None": 0}
+_MELODIC_INTERVAL_ENCODING = {"None": 0}
 _KEY_SIGNATURE_ENCODING = {"None": 0}
 _MODE_ENCODING = {"None": 0, "major": 1, "minor": 2}
 _BEAT_ENCODING = {"None": 0}
 _QUARTER_LENGTH_ENCODING = {"None": 0}
-_PITCH_SPACE_REVERSE_ENCODING = {0: "None"}
 _LETTER_NAME_REVERSE_ENCODING = {0: "None", 1: "C", 2: "D", 3: "E", 4: "F", 5: "G", 6: "A", 7: "B"}
 _ACCIDENTAL_NAME_REVERSE_ENCODING = {0: "None", 1: 'double-flat', 2: 'double-sharp', 3: 'flat', 4: 'half-flat', 
                                      5: 'half-sharp', 6: 'natural', 7: 'one-and-a-half-flat', 8: 'one-and-a-half-sharp', 
                                      9: 'quadruple-flat', 10: 'quadruple-sharp', 11: 'sharp', 12: 'triple-flat', 13: 'triple-sharp'}
-_OCTAVE_REVERSE_ENCODING = {0: "None"}
 _PITCH_CLASS_REVERSE_ENCODING = {0: "None"}
+_OCTAVE_REVERSE_ENCODING = {0: "None"}
+_PITCH_SPACE_REVERSE_ENCODING = {0: "None"}
+_MELODIC_INTERVAL_REVERSE_ENCODING = {0: "None"}
 _KEY_SIGNATURE_REVERSE_ENCODING = {0: "None"}
 _MODE_REVERSE_ENCODING = {0: "None", 1: "major", 2: "minor"}
 _BEAT_REVERSE_ENCODING = {0: "None"}
@@ -74,6 +76,10 @@ for i in range(1, 12+1):
 for i in range(1, 128+1):
     _PITCH_SPACE_ENCODING[str(float(i-1))] = i 
     _PITCH_SPACE_REVERSE_ENCODING[i] = str(float(i-1))
+
+for i in range(1, 23+1):
+    _MELODIC_INTERVAL_ENCODING[str(float(i-12))] = i 
+    _MELODIC_INTERVAL_REVERSE_ENCODING[i] = str(float(i-12))
 
 for i in range(1, 15+1):
     _KEY_SIGNATURE_ENCODING[str(i-8)] = i 
@@ -116,7 +122,7 @@ for denominator, step in [(2, 2), (3, 1), (4, 2), (6, 2), (8, 2)]:
 # The total number of features and outputs for the model. This can change from time to time, and must be updated!
 ###################################################################################################################
 _NUM_FEATURES = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING) + \
-                len(_BEAT_ENCODING) + len(_PITCH_CLASS_ENCODING)  + len(_KEY_SIGNATURE_ENCODING)  + len(_MODE_ENCODING) 
+                len(_BEAT_ENCODING) + len(_PITCH_CLASS_ENCODING) + len(_MELODIC_INTERVAL_ENCODING) + len(_KEY_SIGNATURE_ENCODING)  + len(_MODE_ENCODING) 
 _NUM_OUTPUTS = len(_LETTER_NAME_ENCODING) + len(_ACCIDENTAL_NAME_ENCODING) + len(_OCTAVE_ENCODING) + len(_QUARTER_LENGTH_ENCODING)
 
 
@@ -269,6 +275,18 @@ def load_data(staff) -> list:
                     dataset.append(current_note)
                     current_note = {}
 
+    # Fill melodic intervals
+    last_ps = None
+    for item in dataset:
+        if item["ps"] != "None":
+            if last_ps is not None:
+                item["melodic_interval"] = (item["ps"] - last_ps) % 12
+            else:
+                item["melodic_interval"] = 0.0
+            last_ps = item["ps"]
+        else:
+            item["melodic_interval"] = "None"
+        
     return dataset
 
 
@@ -330,7 +348,8 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
     instances = []
     for instance in dataset:
         # One-hots
-        pitch_class_one_hot = F.one_hot(torch.tensor(_PITCH_CLASS_ENCODING[str(instance["pitch_class_id"])]), len(_PITCH_CLASS_ENCODING)).float()
+        letter_name_one_hot = F.one_hot(torch.tensor(_LETTER_NAME_ENCODING[str(instance["letter_name"])]), len(_LETTER_NAME_ENCODING)).float()
+        accidental_name_one_hot = F.one_hot(torch.tensor(_ACCIDENTAL_NAME_ENCODING[str(instance["accidental_name"])]), len(_ACCIDENTAL_NAME_ENCODING)).float()
         octave_one_hot = F.one_hot(torch.tensor(_OCTAVE_ENCODING[str(instance["octave"])]), len(_OCTAVE_ENCODING)).float()
         if instance["quarterLength"] == "None":
             quarter_length_one_hot = F.one_hot(torch.tensor(_QUARTER_LENGTH_ENCODING[str(instance["quarterLength"])]), len(_QUARTER_LENGTH_ENCODING)).float()
@@ -340,12 +359,12 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
             beat_one_hot = F.one_hot(torch.tensor(_BEAT_ENCODING[str(instance["beat"])]), len(_BEAT_ENCODING)).float()
         else:
             beat_one_hot = F.one_hot(torch.tensor(_BEAT_ENCODING[str(Fraction(instance["beat"]))]), len(_BEAT_ENCODING)).float()
-        letter_name_one_hot = F.one_hot(torch.tensor(_LETTER_NAME_ENCODING[str(instance["letter_name"])]), len(_LETTER_NAME_ENCODING)).float()
-        accidental_name_one_hot = F.one_hot(torch.tensor(_ACCIDENTAL_NAME_ENCODING[str(instance["accidental_name"])]), len(_ACCIDENTAL_NAME_ENCODING)).float()
+        pitch_class_one_hot = F.one_hot(torch.tensor(_PITCH_CLASS_ENCODING[str(instance["pitch_class_id"])]), len(_PITCH_CLASS_ENCODING)).float()
+        melodic_interval_one_hot = F.one_hot(torch.tensor(_MELODIC_INTERVAL_ENCODING[str(instance["melodic_interval"])]), len(_MELODIC_INTERVAL_ENCODING)).float()
         key_signature_one_hot = F.one_hot(torch.tensor(_KEY_SIGNATURE_ENCODING[str(instance["key_signature"])]), len(_KEY_SIGNATURE_ENCODING)).float()
         mode_one_hot = F.one_hot(torch.tensor(_MODE_ENCODING[str(instance["mode"])]), len(_MODE_ENCODING)).float()
         instances.append(torch.hstack((letter_name_one_hot, accidental_name_one_hot, octave_one_hot, quarter_length_one_hot, beat_one_hot, 
-                                       pitch_class_one_hot, key_signature_one_hot, mode_one_hot)))
+                                       pitch_class_one_hot, melodic_interval_one_hot, key_signature_one_hot, mode_one_hot)))
 
     instances = torch.vstack(instances)
     if batched:
@@ -402,22 +421,30 @@ def unload_data(dataset: list) -> music21.stream.Score:
     return score
 
 
-def update_note_based_on_previous(note, previous_note):
+def update_note_based_on_previous(note, previous_notes):
     """
     Updates a note based on its previous note. This is useful for adding in
     important details, like beat position, that cannot be determined immediately
     by the predictor.
     :param note: The note to update
-    :param previous_note: The previous note in the sequence
+    :param previous_notes: The previous notes in the sequence
     """
-    time_signature_numerator = Fraction(previous_note["time_signature"].split("/")[0])
-    beat = Fraction(previous_note["beat"]) + Fraction(previous_note["quarterLength"])
+    time_signature_numerator = Fraction(previous_notes[-1]["time_signature"].split("/")[0])
+    beat = Fraction(previous_notes[-1]["beat"]) + Fraction(previous_notes[-1]["quarterLength"])
     while beat > time_signature_numerator:
         beat -= time_signature_numerator
-    note["key_signature"] = previous_note["key_signature"] 
-    note["mode"] = previous_note["mode"]
-    note["time_signature"] = previous_note["time_signature"]
-    note["beat"] = beat            
+    note["key_signature"] = previous_notes[-1]["key_signature"] 
+    note["mode"] = previous_notes[-1]["mode"]
+    note["time_signature"] = previous_notes[-1]["time_signature"]
+    note["beat"] = beat
+    if note["ps"] == "None":
+        note["melodic_interval"] = "None"
+    else:
+        note["melodic_interval"] = 0.0
+        for i in range(len(previous_notes) - 1, -1, -1):
+            if previous_notes[i]["ps"] != "None":
+                note["melodic_interval"] = (note["ps"] - previous_notes[i]["ps"]) % 12
+                break
 
 
 class MusicXMLDataSet(Dataset):

@@ -56,8 +56,8 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt1.musicxml"  # Only the top staff will be considered
-    MODEL_METADATA_FILE = "./data/model6.json"
+    MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
+    MODEL_METADATA_FILE = "./data/model10.json"
     NOTES_TO_PREDICT = 25
 
     #######################################################################################
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         next_note, hidden = predict_from_sequence(model, tokenized_data, model_metadata["training_sequence_max_length"])
         for i in range(NOTES_TO_PREDICT):
             # get the note time signature and beat based on the previous note
-            music_featurizer.update_note_based_on_previous(next_note, data[-1])
+            music_featurizer.update_note_based_on_previous(next_note, data)
             data.append(next_note)
             next_note, hidden = predict_next_note(model, music_featurizer.make_one_hot_features([next_note]), hidden, model_metadata["training_sequence_max_length"])
 
