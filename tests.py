@@ -9,6 +9,64 @@ import music_features
 import music_featurizer
 import music21
 
+
+def compare_data(original_data, detokenized_data):
+    """
+    Compares original data and detokenized data to verify that the tokenizing/
+    detokenizing process has not corrupted the data
+    :param original_data: The original data
+    :param detokenized_data: The detokenized data
+    """
+    # Check the detokenized data to make sure it is the same as the original data
+    all_same = True
+    for i in range(len(data)):
+        same = True
+        if original_data[i]["letter_accidental_octave_name"] != detokenized_data[i]["letter_accidental_octave_name"]:
+            same = False
+            all_same = False
+        elif original_data[i]["letter_accidental_name"] != detokenized_data[i]["letter_accidental_name"]:
+            same = False
+            all_same = False
+        elif original_data[i]["letter_name"] != detokenized_data[i]["letter_name"]:
+            same = False
+            all_same = False
+        elif original_data[i]["accidental_name"] != detokenized_data[i]["accidental_name"]:
+            same = False
+            all_same = False
+        elif original_data[i]["octave"] != detokenized_data[i]["octave"]:
+            same = False
+            all_same = False
+        elif original_data[i]["pitch_class_id"] != detokenized_data[i]["pitch_class_id"]:
+            same = False
+            all_same = False
+        elif original_data[i]["ps"] != detokenized_data[i]["ps"]:
+            same = False
+            all_same = False
+        elif original_data[i]["key_signature"] != detokenized_data[i]["key_signature"]:
+            same = False
+            all_same = False
+        elif original_data[i]["mode"] != detokenized_data[i]["mode"]:
+            same = False
+            all_same = False
+        elif original_data[i]["quarterLength"] != detokenized_data[i]["quarterLength"]:
+            same = False
+            all_same = False
+        elif original_data[i]["beat"] != detokenized_data[i]["beat"]:
+            same = False
+            all_same = False
+        elif original_data[i]["time_signature"] != detokenized_data[i]["time_signature"]:
+            same = False
+            all_same = False
+    
+        if not same:
+            print(f"Error in note {i}")
+    
+    if not all_same:
+        print(f"Error in encoding/decoding process")
+    else:
+        print(f"SUCCESS: All encoding/decoding tests passed.")
+
+
 def detokenize(tokens):
     """
     Detokenizes one-hot features and returns them to regular encoding
@@ -70,10 +128,16 @@ def detokenize(tokens):
     return notes
 
 
+
+
 score = music21.corpus.parse('bwv66.6')
 staves = music_featurizer.get_staff_indices(score)
 data = music_featurizer.load_data(score[staves[0]])
 tokens = music_featurizer.make_one_hot_features(data, False)
 new_data = detokenize(tokens)
+
+# Check the two datasets to verify that tokenizing/detokenizing is working ok
+compare_data(data, new_data)
+
 score1 = music_featurizer.unload_data(new_data)
-score1.show()
+# score1.show()
