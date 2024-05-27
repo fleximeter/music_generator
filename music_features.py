@@ -4,11 +4,6 @@ File: music_features.py
 This module has feature maps for music featurization.
 """
 
-
-###################################################################################################################
-# Feature dictionaries
-###################################################################################################################
-
 # Letter name and accidental
 LETTER_NAME_ENCODING = {"C": 1, "D": 2, "E": 3, "F": 4, "G": 5, "A": 6, "B": 7}
 ACCIDENTAL_NAME_ENCODING = {"None": 0, 'double-flat': 1, 'double-sharp': 2, 'flat': 3, 'half-flat': 4, 'half-sharp': 5, 
@@ -18,10 +13,15 @@ REVERSE_LETTER_NAME_ENCODING = {0: "None", 1: "C", 2: "D", 3: "E", 4: "F", 5: "G
 REVERSE_ACCIDENTAL_NAME_ENCODING = {0: "None", 1: 'double-flat', 2: 'double-sharp', 3: 'flat', 4: 'half-flat', 
                                      5: 'half-sharp', 6: 'natural', 7: 'one-and-a-half-flat', 8: 'one-and-a-half-sharp', 
                                      9: 'quadruple-flat', 10: 'quadruple-sharp', 11: 'sharp', 12: 'triple-flat', 13: 'triple-sharp'}
+OCTAVE_ENCODING = {}
+REVERSE_OCTAVE_ENCODING = {0: "None"}
+for i in range(1, 14+1):
+    OCTAVE_ENCODING[str(i-1)] = i
+    REVERSE_OCTAVE_ENCODING[i] = str(i-1)
 
 # Letter name plus accidental
-LETTER_ACCIDENTAL_ENCODING = {"None": 0}
-REVERSE_LETTER_ACCIDENTAL_ENCODING = {0: "None"}
+LETTER_ACCIDENTAL_ENCODING = {"None|None": 0}
+REVERSE_LETTER_ACCIDENTAL_ENCODING = {0: "None|None"}
 
 i = 1
 for key_letter in LETTER_NAME_ENCODING:
@@ -30,12 +30,24 @@ for key_letter in LETTER_NAME_ENCODING:
         REVERSE_LETTER_ACCIDENTAL_ENCODING[i] = f"{key_letter}|{key_accidental}"
         i += 1
 
-LETTER_NAME_ENCODING["None|None"] = 0
+# Letter name plus accidental plus octave
+LETTER_ACCIDENTAL_OCTAVE_ENCODING = {"None|None|None": 0}
+REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING = {0: "None|None|None"}
+
+i = 1
+for key_letter in LETTER_NAME_ENCODING:
+    for key_accidental in ACCIDENTAL_NAME_ENCODING:
+        for key_octave in OCTAVE_ENCODING:
+            LETTER_ACCIDENTAL_OCTAVE_ENCODING[f"{key_letter}|{key_accidental}|{key_octave}"] = i
+            REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[i] = f"{key_letter}|{key_accidental}|{key_octave}"
+        i += 1
+
+LETTER_NAME_ENCODING["None"] = 0
+OCTAVE_ENCODING["None"] = 0
 
 # Other features
 ACCIDENTAL_ENCODING = {"None": 0, "-2.0": 1, "-1.0": 2, "0.0": 3, "1.0": 4, "2.0": 5}
 PITCH_CLASS_ENCODING = {"None": 0}
-OCTAVE_ENCODING = {"None": 0}
 PITCH_SPACE_ENCODING = {"None": 0}
 MELODIC_INTERVAL_ENCODING = {"None": 0}
 KEY_SIGNATURE_ENCODING = {"None": 0}
@@ -43,7 +55,6 @@ MODE_ENCODING = {"None": 0, "major": 1, "minor": 2}
 BEAT_ENCODING = {"None": 0}
 QUARTER_LENGTH_ENCODING = {"None": 0}
 REVERSE_PITCH_CLASS_ENCODING = {0: "None"}
-REVERSE_OCTAVE_ENCODING = {0: "None"}
 REVERSE_PITCH_SPACE_ENCODING = {0: "None"}
 REVERSE_MELODIC_INTERVAL_ENCODING = {0: "None"}
 REVERSE_KEY_SIGNATURE_ENCODING = {0: "None"}
@@ -67,10 +78,6 @@ ACCIDENTAL_ALTER_TO_NAME_ENCODING = {0.0: "None", 2.0: 'double-flat', -2.0: 'dou
 for i in range(1, 128+1):
     PITCH_SPACE_ENCODING[str(float(i-1))] = i 
     REVERSE_PITCH_SPACE_ENCODING[i] = str(float(i-1))
-
-for i in range(1, 14+1):
-    OCTAVE_ENCODING[str(i-1)] = i
-    REVERSE_OCTAVE_ENCODING[i] = str(i-1)
 
 for i in range(1, 12+1):
     PITCH_CLASS_ENCODING[str(float(i-1))] = i

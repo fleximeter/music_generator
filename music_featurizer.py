@@ -125,6 +125,7 @@ def load_data(staff) -> list:
                         current_note["accidental_name"] = item.pitch.accidental.name if item.pitch.accidental is not None else "None"
                         current_note["accidental"] = item.pitch.accidental.alter if item.pitch.accidental is not None else 0.0
                         current_note["letter_accidental_name"] = f"{current_note["letter_name"]}|{current_note["accidental_name"]}"
+                        current_note["letter_accidental_octave_name"] = f"{current_note["letter_name"]}|{current_note["accidental_name"]}|{current_note["octave"]}"
                         current_note["pitch_class_id"] = float(item.pitch.pitchClass)          # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                         current_note["key_signature"] = current_key                            # key signature
                         current_note["mode"] = current_mode                                    # mode
@@ -152,8 +153,8 @@ def load_data(staff) -> list:
                     current_note["octave"] = "None"                              # MIDI number (symbolic x257)
                     current_note["letter_name"] = "None"                         # letter name (C, D, E, ...) (symbolic x8)
                     current_note["accidental_name"] = "None"                     # accidental name ("sharp", etc.) (symbolic)
-                    current_note["letter_accidental_name"] = "None"
-                    current_note["accidental"] = "None"                          # accidental alter value (symbolic)
+                    current_note["letter_accidental_name"] = "None|None"
+                    current_note["letter_accidental_octave_name"] = "None|None|None"
                     current_note["pitch_class_id"] = "None"                      # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                     current_note["key_signature"] = current_key                  # key signature
                     current_note["mode"] = current_mode                          # mode
@@ -263,10 +264,14 @@ def retrieve_class_dictionary(prediction: tuple) -> dict:
     :param prediction: The prediction tuple
     :return: The prediction dictionary
     """
+    # letter_accidental_octave_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
+    # letter, accidental, octave = letter_accidental_octave_name.split('|')
+    # note = {"letter_accidental_octave_name": letter_accidental_octave_name, letter_accidental_name: f"{letter}|{accidental}", "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
     letter_accidental_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
     letter, accidental = letter_accidental_name.split('|')
-    note = {"letter_accidental_name": letter_accidental_name, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[2]])}
-    note.update(convert_letter_accidental_octave_to_note(letter, accidental, music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]))
+    octave = music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]
+    note = {"letter_accidental_octave_name": f"{letter_accidental_name}|{octave}", "letter_accidental_name": letter_accidental_name, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
+    note.update(convert_letter_accidental_octave_to_note(letter, accidental, octave))
     return note
 
 

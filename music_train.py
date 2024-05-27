@@ -122,11 +122,11 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
     
-    PATH = "./data/train"             # The path to the training corpus
+    PATH = "./data/train"              # The path to the training corpus
     FILE_NAME = "./data/model12.json"  # The path to the model metadata JSON file
-    RETRAIN = False                   # Whether or not to continue training the same model
-    NUM_EPOCHS = 800                  # The number of epochs to train
-    LEARNING_RATE = 0.001             # The model learning rate
+    RETRAIN = True                     # Whether or not to continue training the same model
+    NUM_EPOCHS = 800                   # The number of epochs to train
+    LEARNING_RATE = 0.001              # The model learning rate
     
     # The model metadata - save to JSON file
     model_metadata = {
