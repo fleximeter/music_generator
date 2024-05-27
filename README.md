@@ -1,10 +1,10 @@
 # Music Generator
 
 ## About
-This repository is a generative AI system for producing the next note in a sequence of notes. It makes melodies. It can train models on a collection of MusicXML files, including `music21` corpuses. It is based on the PyTorch LSTM architecture, and will need considerable resources for training.
+This repository is a generative AI system for producing the next note in a sequence of notes. It makes melodies. It can train models on a collection of MusicXML files, including `music21` corpuses. It is based on the PyTorch LSTM architecture, and will need considerable resources for training if you want an acceptable model. Predictions generate four classes for each instance: letter name, accidental name, octave, and quarter length. This helps the model to learn to use the appropriate accidentals for a given key. (If the training corpus is atonal, that does not matter; the model should perform fine regardless.) You can adjust loss weights if you want to emphasize a particular output class (the current version here prioritizes accidental correctness).
 
 ## Resource needs
-The default training device is CUDA, and MPS is the first fallback, with a CPU as the last-level default. When training, the estimated time remaining is output, which will help you determine if you are making your computer do too much work.
+The default training device is CUDA, and MPS is the first fallback, with a CPU as the last-level default. When training, the estimated time remaining is output. This helps with gauging resource consumption.
 
 ## Training a model
 To train a model, you run the `music_train.py` program. You will need to specify the location to save the model metadata dictionary, as well as items in the dictionary (hyperparameters, etc.) While training, the model will routinely save its state to a file, specified in the model metadata dictionary. Once the model has saved its state for the first time, you can start making predictions as the model continues to train and periodically updates its state file.
