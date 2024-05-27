@@ -29,7 +29,7 @@ def predict_from_sequence(model, sequence, training_sequence_max_length) -> Tupl
     s, l = dataset.MusicXMLDataSet.prepare_prediction(sequence, training_sequence_max_length)
     prediction, hidden = model(s, l, model.init_hidden())
     predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item(), 
-                                                                 prediction[2].argmax().item()))
+                                                                 prediction[-1].argmax().item()))
     return predicted_note, hidden
 
 
@@ -48,7 +48,7 @@ def predict_next_note(model, current_note, hidden, training_sequence_max_length)
     s, l = dataset.MusicXMLDataSet.prepare_prediction(current_note, training_sequence_max_length)
     prediction, hidden = model(s, l, hidden)
     predicted_note = music_featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item(), 
-                                                                 prediction[2].argmax().item()))
+                                                                 prediction[-1].argmax().item()))
     return predicted_note, hidden
 
 
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     #######################################################################################
 
     MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
-    MODEL_METADATA_FILE = "./data/model11.json"
+    MODEL_METADATA_FILE = "./data/model13.json"
     NOTES_TO_PREDICT = 25
 
     #######################################################################################

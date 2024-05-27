@@ -190,11 +190,11 @@ def make_labels(x) -> list:
     :return: A list of label tuples. Each label tuple has 3 labels (letter name + accidental name, octave, quarter length).
     """
     y = []
+    i = (
+        (0, len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING)), 
+        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING))
+        )
     for sequence in x:
-        i = (
-            (0, len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING)), 
-            (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING))
-            )
         letter_accidental_octave = sequence[-1, i[0][0]:i[0][1]]
         quarter_length = sequence[-1, i[1][0]:i[1][1]]
         y.append((letter_accidental_octave.argmax().item(), quarter_length.argmax().item()))
@@ -234,7 +234,6 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
     for instance in dataset:
         # One-hots
         letter_accidental_octave_name_one_hot = F.one_hot(torch.tensor(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING[instance["letter_accidental_octave_name"]]), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING)).float()
-        octave_one_hot = F.one_hot(torch.tensor(music_features.OCTAVE_ENCODING[str(instance["octave"])]), len(music_features.OCTAVE_ENCODING)).float()
         if instance["quarterLength"] == "None":
             quarter_length_one_hot = F.one_hot(torch.tensor(music_features.QUARTER_LENGTH_ENCODING[str(instance["quarterLength"])]), len(music_features.QUARTER_LENGTH_ENCODING)).float()
         else:
@@ -262,7 +261,7 @@ def retrieve_class_dictionary(prediction: tuple) -> dict:
     :param prediction: The prediction tuple
     :return: The prediction dictionary
     """
-    letter_accidental_octave_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
+    letter_accidental_octave_name = music_features.REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[prediction[0]]
     letter, accidental, octave = letter_accidental_octave_name.split('|')
     note = {"letter_accidental_octave_name": letter_accidental_octave_name, "letter_accidental_name": f"{letter}|{accidental}", "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
     # letter_accidental_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]

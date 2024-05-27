@@ -40,7 +40,7 @@ for key_letter in LETTER_NAME_ENCODING:
         for key_octave in OCTAVE_ENCODING:
             LETTER_ACCIDENTAL_OCTAVE_ENCODING[f"{key_letter}|{key_accidental}|{key_octave}"] = i
             REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[i] = f"{key_letter}|{key_accidental}|{key_octave}"
-        i += 1
+            i += 1
 
 LETTER_NAME_ENCODING["None"] = 0
 OCTAVE_ENCODING["None"] = 0
