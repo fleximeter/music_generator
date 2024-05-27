@@ -5,12 +5,12 @@ This module has tests to verify that feature encoding works properly.
 """
 
 from fractions import Fraction
-import music_features
-import music_featurizer
+import feature_definitions
+import featurizer
 import music21
 
 
-def compare_data(original_data, detokenized_data):
+def compare_data(original_data, detokenized_data) -> None:
     """
     Compares original data and detokenized data to verify that the tokenizing/
     detokenizing process has not corrupted the data
@@ -67,21 +67,21 @@ def compare_data(original_data, detokenized_data):
         print(f"SUCCESS: All encoding/decoding tests passed.")
 
 
-def detokenize(tokens):
+def detokenize(tokens) -> list:
     """
     Detokenizes one-hot features and returns them to regular encoding
     :param tokens: A tensor of one-hot encoded instances
     :return: The regular encoding
     """
     i = (
-        (0, len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING)), 
-        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING)),
-        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING)),
-        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING)),
-        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING)),
-        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING)),
-        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING) + len(music_features.MODE_ENCODING)),
-        (len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING) + len(music_features.MODE_ENCODING), len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(music_features.QUARTER_LENGTH_ENCODING) + len(music_features.BEAT_ENCODING) + len(music_features.PITCH_CLASS_ENCODING) + len(music_features.MELODIC_INTERVAL_ENCODING) + len(music_features.KEY_SIGNATURE_ENCODING) + len(music_features.MODE_ENCODING) + len(music_features.TIME_SIGNATURE_ENCODING)),
+        (0, len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING)), 
+        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING)),
+        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING)),
+        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING)),
+        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.MELODIC_INTERVAL_ENCODING)),
+        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.MELODIC_INTERVAL_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.MELODIC_INTERVAL_ENCODING) + len(feature_definitions.KEY_SIGNATURE_ENCODING)),
+        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.MELODIC_INTERVAL_ENCODING) + len(feature_definitions.KEY_SIGNATURE_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.MELODIC_INTERVAL_ENCODING) + len(feature_definitions.KEY_SIGNATURE_ENCODING) + len(feature_definitions.MODE_ENCODING)),
+        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.MELODIC_INTERVAL_ENCODING) + len(feature_definitions.KEY_SIGNATURE_ENCODING) + len(feature_definitions.MODE_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING) + len(feature_definitions.BEAT_ENCODING) + len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.MELODIC_INTERVAL_ENCODING) + len(feature_definitions.KEY_SIGNATURE_ENCODING) + len(feature_definitions.MODE_ENCODING) + len(feature_definitions.TIME_SIGNATURE_ENCODING)),
     )
 
     notes = []
@@ -94,14 +94,14 @@ def detokenize(tokens):
         key_signature = tokens[j, i[5][0]:i[5][1]]
         mode = tokens[j, i[6][0]:i[6][1]]
         time_signature = tokens[j, i[7][0]:i[7][1]]
-        letter_accidental_octave = music_features.REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[letter_accidental_octave.argmax().item()]
-        quarter_length = music_features.REVERSE_QUARTER_LENGTH_ENCODING[quarter_length.argmax().item()]
-        beat = music_features.REVERSE_BEAT_ENCODING[beat.argmax().item()]
-        pitch_class = music_features.REVERSE_PITCH_CLASS_ENCODING[pitch_class.argmax().item()]
-        melodic_interval = music_features.REVERSE_MELODIC_INTERVAL_ENCODING[melodic_interval.argmax().item()]
-        key_signature = music_features.REVERSE_KEY_SIGNATURE_ENCODING[key_signature.argmax().item()]
-        mode = music_features.REVERSE_MODE_ENCODING[mode.argmax().item()]
-        time_signature = music_features.REVERSE_TIME_SIGNATURE_ENCODING[time_signature.argmax().item()]
+        letter_accidental_octave = feature_definitions.REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[letter_accidental_octave.argmax().item()]
+        quarter_length = feature_definitions.REVERSE_QUARTER_LENGTH_ENCODING[quarter_length.argmax().item()]
+        beat = feature_definitions.REVERSE_BEAT_ENCODING[beat.argmax().item()]
+        pitch_class = feature_definitions.REVERSE_PITCH_CLASS_ENCODING[pitch_class.argmax().item()]
+        melodic_interval = feature_definitions.REVERSE_MELODIC_INTERVAL_ENCODING[melodic_interval.argmax().item()]
+        key_signature = feature_definitions.REVERSE_KEY_SIGNATURE_ENCODING[key_signature.argmax().item()]
+        mode = feature_definitions.REVERSE_MODE_ENCODING[mode.argmax().item()]
+        time_signature = feature_definitions.REVERSE_TIME_SIGNATURE_ENCODING[time_signature.argmax().item()]
         letter_name, accidental, octave = letter_accidental_octave.split('|')
         if octave != "None":
             octave = int(float(octave))
@@ -130,13 +130,13 @@ def detokenize(tokens):
 
 if __name__ == "__main__":
     score = music21.corpus.parse('bwv66.6')
-    staves = music_featurizer.get_staff_indices(score)
-    data = music_featurizer.load_data(score[staves[0]])
-    tokens = music_featurizer.make_one_hot_features(data, False)
+    staves = featurizer.get_staff_indices(score)
+    data = featurizer.load_data(score[staves[0]])
+    tokens = featurizer.make_one_hot_features(data, False)
     new_data = detokenize(tokens)
 
     # Check the two datasets to verify that tokenizing/detokenizing is working ok
     compare_data(data, new_data)
 
-    score1 = music_featurizer.unload_data(new_data)
+    score1 = featurizer.unload_data(new_data)
     # score1.show()

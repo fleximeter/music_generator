@@ -1,5 +1,5 @@
 """
-File: music_train.py
+File: train.py
 
 This module trains the music sequence generator. You can either train a model from
 scratch, or you can choose to continue training a model that was previously saved
@@ -10,9 +10,9 @@ import dataset
 import datetime
 import itertools
 import json
-import music_features
-import music_corpus
-import music_generator
+import feature_definitions
+import corpus
+import model_definition
 import music21
 import torch
 import torch.nn as nn
@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 
 
 def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_epochs, status_interval, 
-                    save_interval, model_metadata, device="cpu", sendgrid_api_data=None):
+                    save_interval, model_metadata, device="cpu", sendgrid_api_data=None) -> None:
     """
     Trains the model. This training function expects a DataLoader which will feed it batches
     of sequences in randomized order. The DataLoader takes care of serving up labels as well.
@@ -146,8 +146,8 @@ if __name__ == "__main__":
         "hidden_size": 1024,
         "batch_size": 200,
         "state_dict": "./data/music_sequencer_13.pth",
-        "num_features": music_features.NUM_FEATURES,
-        "output_sizes": [len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(music_features.QUARTER_LENGTH_ENCODING)],
+        "num_features": feature_definitions.NUM_FEATURES,
+        "output_sizes": [len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.QUARTER_LENGTH_ENCODING)],
         "loss": None
     }
     with open(FILE_NAME, "w") as model_json_file:
@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
     # Get the corpus and prepare it as a dataset
     # scores = music_finder.prepare_directory(PATH, device)
-    scores = music_corpus.get_m21_corpus('bach')
+    scores = corpus.get_m21_corpus('bach')
 
     # essen folksongs
     """
@@ -192,7 +192,7 @@ if __name__ == "__main__":
         
     # Load and prepare the model. If retraining the model, we will need to load the
     # previous state dictionary so that we aren't training from scratch.
-    model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
+    model = model_definition.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
                                       model_metadata["hidden_size"], model_metadata["num_layers"], device).to(device)
     if RETRAIN:
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
