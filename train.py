@@ -39,7 +39,7 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
     :param status_interval: How often (in epochs) to print an update message
     :param save_interval: Save to disk every N epochs
     :param model_metadata: The model metadata
-    :param device: The device that is being used for the hidden matrices
+    :param device: The device that is being used for training
     :param sendgrid_api_data: The Sendgrid API information if you want to send status update emails
     """
 

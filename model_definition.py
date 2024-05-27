@@ -1,5 +1,5 @@
 """
-File: music_generator.py
+File: model_definition.py
 
 This file contains the neural network definition for the music sequence
 generator. At this point it uses a LSTM model and outputs three labels:
