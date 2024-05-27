@@ -128,16 +128,15 @@ def detokenize(tokens):
     return notes
 
 
+if __name__ == "__main__":
+    score = music21.corpus.parse('bwv66.6')
+    staves = music_featurizer.get_staff_indices(score)
+    data = music_featurizer.load_data(score[staves[0]])
+    tokens = music_featurizer.make_one_hot_features(data, False)
+    new_data = detokenize(tokens)
 
+    # Check the two datasets to verify that tokenizing/detokenizing is working ok
+    compare_data(data, new_data)
 
-score = music21.corpus.parse('bwv66.6')
-staves = music_featurizer.get_staff_indices(score)
-data = music_featurizer.load_data(score[staves[0]])
-tokens = music_featurizer.make_one_hot_features(data, False)
-new_data = detokenize(tokens)
-
-# Check the two datasets to verify that tokenizing/detokenizing is working ok
-compare_data(data, new_data)
-
-score1 = music_featurizer.unload_data(new_data)
-# score1.show()
+    score1 = music_featurizer.unload_data(new_data)
+    # score1.show()
