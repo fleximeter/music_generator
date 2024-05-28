@@ -15,32 +15,38 @@ import torch
 from typing import Tuple
 
 
-def predict_from_sequence(model, sequence, model_metadata) -> Tuple[dict, torch.Tensor]:
+def predict_from_sequence(model, sequence, training_sequence_max_length) -> Tuple[dict, torch.Tensor]:
     """
     Predicts the next note, based on an existing model and a sequence of notes
     :param model: The model
     :param sequence: The tokenized sequence of notes
-    :param model_metadata: The model metadata
+    :param training_sequence_max_length: The maximum sequence length the model was trained on.
+    This is necessary because the DataLoader will pad sequences that are shorter than the maximum
+    length, and the model might not behave as predicted if we don't pad sequences that we use
+    as prompts.
     :return: The prediction as a note dictionary, and the hidden states as a tuple
     """
-    s, l = dataset.MusicXMLDataSet.prepare_prediction(sequence, model_metadata["training_sequence_max_length"])
+    s, l = dataset.MusicXMLDataSet.prepare_prediction(sequence, training_sequence_max_length)
     prediction, hidden = model(s, l, model.init_hidden())
-    predicted_note = featurizer.retrieve_class_dictionary([predict.argmax().item() for predict in prediction], model_metadata["output_classes"])
+    predicted_note = featurizer.retrieve_class_dictionary([predict.argmax().item() for predict in prediction])
     return predicted_note, hidden
 
 
-def predict_next_note(model, current_note, hidden, model_metadata) -> Tuple[dict, torch.Tensor]:
+def predict_next_note(model, current_note, hidden, training_sequence_max_length) -> Tuple[dict, torch.Tensor]:
     """
     Predicts the next note, based on an existing model and a sequence of notes
     :param model: The model
     :param current_note: The current note
     :param hidden: The hidden states
-    :param model_metadata: The model metadata
+    :param training_sequence_max_length: The maximum sequence length the model was trained on
+    This is necessary because the DataLoader will pad sequences that are shorter than the maximum
+    length, and the model might not behave as predicted if we don't pad sequences that we use
+    as prompts.
     :return: The prediction as a note dictionary, and the hidden states as a tuple
     """
-    s, l = dataset.MusicXMLDataSet.prepare_prediction(current_note, model_metadata["training_sequence_max_length"])
+    s, l = dataset.MusicXMLDataSet.prepare_prediction(current_note, training_sequence_max_length)
     prediction, hidden = model(s, l, hidden)
-    predicted_note = featurizer.retrieve_class_dictionary([predict.argmax().item() for predict in prediction], model_metadata["output_classes"])
+    predicted_note = featurizer.retrieve_class_dictionary([predict.argmax().item() for predict in prediction])
     return predicted_note, hidden
 
 
@@ -49,8 +55,8 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt4.musicxml"  # Only the top staff will be considered
-    MODEL_METADATA_FILE = "./data/model14.json"
+    MUSICXML_PROMPT_FILE = "./data/prompt7.musicxml"  # Only the top staff will be considered
+    MODEL_METADATA_FILE = "./data/model13.json"
     NOTES_TO_PREDICT = 25
 
     #######################################################################################
@@ -85,12 +91,12 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
         
         # Predict the next N notes
-        next_note, hidden = predict_from_sequence(model, tokenized_data, model_metadata)
+        next_note, hidden = predict_from_sequence(model, tokenized_data, model_metadata["training_sequence_max_length"])
         for i in range(NOTES_TO_PREDICT):
             # get the note time signature and beat based on the previous note
             featurizer.update_note_based_on_previous(next_note, data)
             data.append(next_note)
-            next_note, hidden = predict_next_note(model, featurizer.make_one_hot_features([next_note]), hidden, model_metadata)
+            next_note, hidden = predict_next_note(model, featurizer.make_one_hot_features([next_note]), hidden, model_metadata["training_sequence_max_length"])
 
         # Turn the data into a score
         score = featurizer.unload_data(data)

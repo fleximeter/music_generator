@@ -127,17 +127,6 @@ for denominator, step in [(2, 2), (3, 1), (4, 2), (6, 2), (8, 2)]:
             REVERSE_BEAT_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
             idx_quarter_length += 1
 
-# This catches weird beat problems due to strange note lengths
-for denominator, step in [(12, 2), (24, 2)]:
-    for i in range(1, _MAX_QUARTER_LENGTH * denominator, step):
-        # This condition catches duplicate durations for subdivisions of 3 and 6
-        if denominator % 3 != 0 or i % 3 != 0:
-            # QUARTER_LENGTH_ENCODING[f"{i}/{denominator}"] = idx_quarter_length
-            # REVERSE_QUARTER_LENGTH_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
-            BEAT_ENCODING[f"{i}/{denominator}"] = idx_quarter_length
-            REVERSE_BEAT_ENCODING[idx_quarter_length] = f"{i}/{denominator}"
-            idx_quarter_length += 1
-
 TIME_SIGNATURE_ENCODING = {"None": 0}
 REVERSE_TIME_SIGNATURE_ENCODING = {0: "None"}
 

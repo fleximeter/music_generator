@@ -3,9 +3,6 @@ File: model_definition.py
 
 This file contains the neural network definition for the music sequence generator. 
 At this point it uses a LSTM model.
-
-If you want to change the number of outputs, you will have to manually edit the
-__init__() and forward() functions.
 """
 
 import torch
@@ -43,6 +40,10 @@ class LSTMMusic(nn.Module):
         # You have to list the output layers explicitly so they will be put on the appropriate device
         self.output_layer1 = nn.Linear(hidden_size, output_sizes[0])
         self.output_layer2 = nn.Linear(hidden_size, output_sizes[1])
+        # self.output_layer3 = nn.Linear(hidden_size, output_sizes[2])
+
+        # A convenience list to allow you to reference all of the output layers in a group
+        self.output_layers = [self.output_layer1, self.output_layer2]
         # end update section
         
         # Track information about the model
@@ -74,9 +75,8 @@ class LSTMMusic(nn.Module):
         last_output = output.gather(1, idx).squeeze(1)
         
         # run the LSTM output through the final layers to generate the logits
-        output_logits1 = self.output_layer1(last_output)
-        output_logits2 = self.output_layer2(last_output)
-        return [output_logits1, output_logits2], hidden_states
+        output_logits = [output(last_output) for output in self.output_layers]
+        return output_logits, hidden_states
     
     def init_hidden(self, batch_size=1) -> Tuple[torch.Tensor, torch.Tensor]:
         """
