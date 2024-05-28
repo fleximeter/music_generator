@@ -1,5 +1,5 @@
 """
-File: music_features.py
+File: feature_definitions.py
 
 This module has feature maps for music featurization.
 """

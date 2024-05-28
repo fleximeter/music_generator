@@ -1,5 +1,5 @@
 """
-File: music_generator.py
+File: model_definition.py
 
 This file contains the neural network definition for the music sequence
 generator. At this point it uses a LSTM model and outputs three labels:
@@ -9,6 +9,7 @@ pitch class, octave, and quarter length.
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from typing import Tuple
 
 class LSTMMusic(nn.Module):
     """
@@ -48,7 +49,7 @@ class LSTMMusic(nn.Module):
             if "weight" in name:
                 nn.init.kaiming_uniform_(param, mode="fan_in", nonlinearity="relu")
 
-    def forward(self, x, lengths, hidden_states):
+    def forward(self, x, lengths, hidden_states) -> Tuple[tuple, tuple]:
         """
         Runs a batch of sequences forward through the model
         :param x: The batch of sequences
@@ -71,7 +72,7 @@ class LSTMMusic(nn.Module):
         quarter_length_logits = self.output_quarter_length(last_output)
         return (letter_accidental_octave_name_logits, quarter_length_logits), hidden_states
     
-    def init_hidden(self, batch_size=1):
+    def init_hidden(self, batch_size=1) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Initializes the hidden state
         :param batch_size: The batch size

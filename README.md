@@ -1,7 +1,7 @@
 # Music Generator
 
 ## About
-This repository is a generative AI system for producing the next note in a sequence of notes. It makes melodies. It can train models on a collection of MusicXML files, including `music21` corpuses. It is based on the PyTorch LSTM architecture, and will need considerable resources for training if you want an acceptable model. Predictions generate four classes for each instance: letter name, accidental name, octave, and quarter length. This helps the model to learn to use the appropriate accidentals for a given key. (If the training corpus is atonal, that does not matter; the model should perform fine regardless.) You can adjust loss weights if you want to emphasize a particular output class (the current version here prioritizes accidental correctness).
+This repository is a generative AI system for producing the next note in a sequence of notes (a melody). It can train models on a collection of MusicXML files, including `music21` corpuses. The architecture is the PyTorch LSTM architecture, and it will likely need considerable resources for training if you want an acceptable model. Predictions generate two classes for each instance: (letter name + accidental name + octave, as one unified class), and length in quarter notes. Learning accidentals and letter names helps the model to learn to use the appropriate accidentals for a given key.
 
 ## Resource needs
 The default training device is CUDA, and MPS is the first fallback, with a CPU as the last-level default. When training, the estimated time remaining is output. This helps with gauging resource consumption.
@@ -17,3 +17,22 @@ You will need to install the following packages to use this repository:
 `music21`, `numpy`, `pytorch`, `pytorch-cuda` (if you are running on CUDA), `regex`, `sendgrid` (for sending training status updates)
 
 To install on a Python virtualenv, run `pip install music21 numpy pytorch pytorch-cuda regex sendgrid`
+
+## File descriptions
+`corpus.py` - Contains functionality for loading all XML files in a given directory and parsing them with `music21`, as well as loading files from the `music21` corpus by composer.
+
+`dataset.py` - Contains the definition for a `torch.utils.data.Dataset` subclass, `MusicXMLDataSet`, that imports `music21.stream.Score` objects and converts them to sequences that can be fed into a model.
+
+`feature_definitions.py` - Defines features that can be extracted from a sequence of nots, and defines their one-hot representations.
+
+`featurizer.py` - Contains functionality for featurizing scores, turning them into one-hot encodings, and processing predicted labels.
+
+`model_definition.py` - Contains the model definition.
+
+`predictor.py` - Contains functionality for making predictions based on a sequence of notes in a MusicXML score and a given model.
+
+`tests.py` - Contains testing functionality
+
+`train.py` - Contains functionality for training models.
+
+`xml_gen.py` - Contains an interface for working with `music21` and easily generating `music21.stream.Score` objects.

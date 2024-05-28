@@ -1,5 +1,5 @@
 """
-File: music_finder.py
+File: corpus.py
 
 This module finds MusicXML files and prepares them for training. It can find files
 in a music21 corpus or in a directory and its subfolders.
@@ -10,9 +10,10 @@ import os
 import re
 
 
-def find_files(directory_name: str) -> list:
+def find_scores(directory_name: str) -> list:
     """
-    Finds all MusicXML files within a directory (and its subdirectories, if recurse=True)
+    Finds all MusicXML files within a directory (and its subdirectories, if recurse=True).
+    Parses them as scores, and returns a list of scores.
     :param directory_name: The directory name
     :return: A list of file names
     """
@@ -23,7 +24,7 @@ def find_files(directory_name: str) -> list:
         for name in files:
             result = search.search(name)
             if result:
-                files_music_xml.append(os.path.join(path, name))
+                files_music_xml.append(music21.converter.parse(os.path.join(path, name)))
 
     return files_music_xml
 
@@ -35,5 +36,6 @@ def get_m21_corpus(composer_name: str) -> list:
     :return: The files
     """
     files = music21.corpus.getComposer(composer_name)
-    files_xml = filter(lambda x: ".xml" in str(x), files)
+    files_xml = list(filter(lambda x: ".xml" in str(x), files))
+    files_xml = [music21.corpus.parse(file) for file in files_xml]
     return files_xml

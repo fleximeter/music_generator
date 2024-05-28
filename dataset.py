@@ -4,8 +4,7 @@ File: dataset.py
 This module has a dataset class for storing sequences.
 """
 
-import music21
-import music_featurizer
+import featurizer
 import torch
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
@@ -22,17 +21,17 @@ class MusicXMLDataSet(Dataset):
     vary, it is necessary to provide a collate function to the DataLoader, and a
     collate function is provided as a static function in this class.
     """
-    def __init__(self, file_list, min_sequence_length, max_sequence_length):
+    def __init__(self, score_list, min_sequence_length, max_sequence_length) -> None:
         """
         Makes a MusicXMLDataSet
-        :param file_list: A list of MusicXML files to turn into a dataset
+        :param score_list: A list of music21 scores to turn into a dataset
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length
         """
         super(MusicXMLDataSet, self).__init__()
         self.min_sequence_length = min_sequence_length
         self.max_sequence_length = max_sequence_length
-        self.data, self.labels = self._load_data(file_list)
+        self.data, self.labels = self._load_data(score_list)
         
     def __len__(self) -> int:
         """
@@ -43,31 +42,29 @@ class MusicXMLDataSet(Dataset):
     
     def __getitem__(self, idx):
         """
-        Gets the next item and label in the dataset
-        :return: sample, label
+        Gets the next item and its labels in the dataset
+        :return: sample, labels
         """
         sample = self.data[idx]
         label = self.labels[idx]
         return sample, *label
     
-    def _load_data(self, file_list) -> Tuple[list, list]:
+    def _load_data(self, score_list) -> Tuple[list, list]:
         """
         Parses each MusicXML file and generates sequences and labels from it
-        :param file_list: A list of MusicXML files to turn into a dataset
+        :param score_list: A list of MusicXML files to turn into a dataset
         """
         sequences = []
         labels = []
-        for file in file_list:
-            score = music21.corpus.parse(file)
-
+        for score in score_list:
             # Go through each staff in each score, and generate individual
             # sequences and labels for that staff
-            for i in music_featurizer.get_staff_indices(score):
-                data = music_featurizer.load_data(score[i])
-                data = music_featurizer.make_one_hot_features(data, False)
+            for i in featurizer.get_staff_indices(score):
+                data = featurizer.load_data(score[i])
+                data = featurizer.make_one_hot_features(data, False)
                 for j in range(self.min_sequence_length, self.max_sequence_length + 1):
-                    seq = music_featurizer.make_n_gram_sequences(data, j+1)
-                    lab = music_featurizer.make_labels(seq)
+                    seq = featurizer.make_n_gram_sequences(data, j+1)
+                    lab = featurizer.make_labels(seq)
 
                     # trim the last entry off the sequence, because it is the label
                     sequences += [s[:-1, :] for s in seq]
@@ -93,7 +90,7 @@ class MusicXMLDataSet(Dataset):
         targets2 = torch.tensor(targets2)
         return sequences_padded, targets1, targets2, lengths
     
-    def prepare_prediction(sequence, max_length):
+    def prepare_prediction(sequence, max_length) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Prepares a sequence for prediction. This function does the padding process
         just like the collate function, so the model behaves as expected.

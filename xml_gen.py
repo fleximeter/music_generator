@@ -16,7 +16,7 @@ import numpy as np
 import xml.etree.ElementTree
 
 
-def add_item(part, item, measure_no, offset=0):
+def add_item(part, item, measure_no, offset=0) -> None:
     """
     Adds an item such as a Clef, KeySignature, or TimeSignature to a Part or PartStaff
     :param part: The Part or PartStaff
@@ -37,7 +37,7 @@ def add_item(part, item, measure_no, offset=0):
                 stream_item.insert(index, item)
 
 
-def add_sequence(part, item_sequence, lyric_sequence=None, measure_no=1, bar_duration=4.0):
+def add_sequence(part, item_sequence, lyric_sequence=None, measure_no=1, bar_duration=4.0) -> None:
     """
     Adds a sequence of notes or chords to a Part or PartStaff
     :param part: The Part or PartStaff
@@ -115,7 +115,7 @@ def add_sequence(part, item_sequence, lyric_sequence=None, measure_no=1, bar_dur
                     current_bar_duration = part[m].barDuration.quarterLength
 
 
-def add_instrument(score, name, abbreviation):
+def add_instrument(score, name, abbreviation) -> None:
     """
     Adds a violin to the score
     :param score: The score
@@ -127,7 +127,7 @@ def add_instrument(score, name, abbreviation):
     score.append(instrument)
 
 
-def add_instrument_multi(score, name, abbreviation, num_staves, symbol="brace", bar_together=True):
+def add_instrument_multi(score, name, abbreviation, num_staves, symbol="brace", bar_together=True) -> None:
     """
     Adds a part with multiple staves (such as a piano) to a score
     :param score: The score
@@ -148,7 +148,7 @@ def add_instrument_multi(score, name, abbreviation, num_staves, symbol="brace", 
     score.append(grp)
 
 
-def add_measures(score, num=10, start_num=1, key=None, meter=None, bar_duration=4.0, initial_offset=0.0, padding_left=0.0, padding_right=0.0):
+def add_measures(score, num=10, start_num=1, key=None, meter=None, bar_duration=4.0, initial_offset=0.0, padding_left=0.0, padding_right=0.0) -> None:
     """
     Adds measures to a score
     :param score: The score
@@ -190,7 +190,7 @@ def add_measures(score, num=10, start_num=1, key=None, meter=None, bar_duration=
                 initial_offset += bar_duration
 
 
-def create_score(title="Score", composer="Jeff Martin"):
+def create_score(title="Score", composer="Jeff Martin") -> music21.stream.Score:
     """
     Creates a score
     :param title: The title of the score
@@ -204,7 +204,7 @@ def create_score(title="Score", composer="Jeff Martin"):
     return s
 
 
-def export_to_xml(score, path):
+def export_to_xml(score, path) -> None:
     """
     Exports a score to a MusicXML file
     :param score: The score
@@ -217,7 +217,7 @@ def export_to_xml(score, path):
         file.write(output)
 
 
-def make_music21_list(items, durations):
+def make_music21_list(items, durations) -> list:
     """
     Makes a music21 list
     :param items: A list of items
@@ -256,7 +256,7 @@ def make_music21_list(items, durations):
     return m_list
 
 
-def remove_empty_measures(score):
+def remove_empty_measures(score) -> None:
     """
     Removes empty measures from a score. For a measure to be empty, 
     it must have no entries (notes, chords, or rests) in any voice or part.

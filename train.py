@@ -1,5 +1,5 @@
 """
-File: music_train.py
+File: train.py
 
 This module trains the music sequence generator. You can either train a model from
 scratch, or you can choose to continue training a model that was previously saved
@@ -8,10 +8,12 @@ to disk. The training function will output status messages and save periodically
 
 import dataset
 import datetime
+import itertools
 import json
-import music_features
-import music_finder
-import music_generator
+import feature_definitions
+import corpus
+import model_definition
+import music21
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -21,7 +23,7 @@ from torch.utils.data import DataLoader
 
 
 def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_epochs, status_interval, 
-                    save_interval, model_metadata, device="cpu", sendgrid_api_data=None):
+                    save_interval, model_metadata, device="cpu", sendgrid_api_data=None) -> None:
     """
     Trains the model. This training function expects a DataLoader which will feed it batches
     of sequences in randomized order. The DataLoader takes care of serving up labels as well.
@@ -37,7 +39,7 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
     :param status_interval: How often (in epochs) to print an update message
     :param save_interval: Save to disk every N epochs
     :param model_metadata: The model metadata
-    :param device: The device that is being used for the hidden matrices
+    :param device: The device that is being used for training
     :param sendgrid_api_data: The Sendgrid API information if you want to send status update emails
     """
 
@@ -144,8 +146,8 @@ if __name__ == "__main__":
         "hidden_size": 1024,
         "batch_size": 200,
         "state_dict": "./data/music_sequencer_13.pth",
-        "num_features": music_features.NUM_FEATURES,
-        "output_sizes": [len(music_features.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(music_features.QUARTER_LENGTH_ENCODING)],
+        "num_features": feature_definitions.NUM_FEATURES,
+        "output_sizes": [len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.QUARTER_LENGTH_ENCODING)],
         "loss": None
     }
     with open(FILE_NAME, "w") as model_json_file:
@@ -160,9 +162,22 @@ if __name__ == "__main__":
         pass
 
     # Get the corpus and prepare it as a dataset
-    # files = music_finder.prepare_directory(PATH, device)
-    files = music_finder.get_m21_corpus('bach')
-    
+    # scores = music_finder.prepare_directory(PATH, device)
+    scores = corpus.get_m21_corpus('bach')
+
+    # essen folksongs
+    """
+    opus = [list(op.scores) for op in [
+        music21.corpus.parse("essenFolksong/altdeu10.abc"), music21.corpus.parse("essenFolksong/altdeu20.abc"),
+        music21.corpus.parse("essenFolksong/ballad10.abc"), music21.corpus.parse("essenFolksong/ballad20.abc"),
+        music21.corpus.parse("essenFolksong/ballad30.abc"), music21.corpus.parse("essenFolksong/ballad40.abc"),
+        music21.corpus.parse("essenFolksong/ballad50.abc"), music21.corpus.parse("essenFolksong/ballad60.abc"),
+        music21.corpus.parse("essenFolksong/ballad70.abc"), music21.corpus.parse("essenFolksong/ballad80.abc"),
+        music21.corpus.parse("essenFolksong/boehme10.abc"), music21.corpus.parse("essenFolksong/boehme20.abc")
+    ]]
+    scores = list(itertools.chain.from_iterable(opus))
+    """
+
     #######################################################################################
     # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
     #######################################################################################
@@ -171,13 +186,13 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    sequence_dataset = dataset.MusicXMLDataSet(files, model_metadata["training_sequence_min_length"], 
+    sequence_dataset = dataset.MusicXMLDataSet(scores, model_metadata["training_sequence_min_length"], 
                                                model_metadata["training_sequence_max_length"])
     dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=8)
         
     # Load and prepare the model. If retraining the model, we will need to load the
     # previous state dictionary so that we aren't training from scratch.
-    model = music_generator.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
+    model = model_definition.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
                                       model_metadata["hidden_size"], model_metadata["num_layers"], device).to(device)
     if RETRAIN:
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
