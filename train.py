@@ -129,12 +129,15 @@ if __name__ == "__main__":
     #######################################################################################
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
-    
-    PATH = "./data/train"              # The path to the training corpus
-    FILE_NAME = "./data/model14.json"  # The path to the model metadata JSON file
-    RETRAIN = False                    # Whether or not to continue training the same model
-    NUM_EPOCHS = 800                   # The number of epochs to train
-    LEARNING_RATE = 0.001              # The model learning rate
+        
+    PATH = "./data/train"                    # The path to the training corpus
+    FILE_NAME = "./data/model14.json"        # The path to the model metadata JSON file
+    RETRAIN = False                          # Whether or not to continue training the same model
+    NUM_EPOCHS = 100                         # The number of epochs to train
+    LEARNING_RATE = 0.001                    # The model learning rate
+    NUM_DATALOADER_WORKERS = 8               # The number of workers for the dataloader
+    PRINT_UPDATE_INTERVAL = 1                # The epoch interval for printing training status
+    MODEL_SAVE_INTERVAL = 10                 # The epoch interval for saving the model
     
     # The model metadata - save to JSON file
     model_metadata = {
@@ -142,7 +145,7 @@ if __name__ == "__main__":
         "path": FILE_NAME,
         "training_sequence_min_length": 2,
         "training_sequence_max_length": 20,
-        "num_layers": 8,
+        "num_layers": 4,
         "hidden_size": 1024,
         "batch_size": 200,
         "state_dict": "./data/music_sequencer_14.pth",
@@ -185,7 +188,7 @@ if __name__ == "__main__":
     
     sequence_dataset = dataset.MusicXMLDataSet(scores, model_metadata["training_sequence_min_length"], 
                                                model_metadata["training_sequence_max_length"])
-    dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=8)
+    dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=NUM_DATALOADER_WORKERS)
     print("Dataset loaded.")
 
     # Prefer CUDA if available, otherwise MPS (if on Apple), or CPU as a last-level default
@@ -207,7 +210,7 @@ if __name__ == "__main__":
     # Train the model
     print(f"Training for {NUM_EPOCHS} epochs...\n")
     # This version is if you don't want email updates
-    train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 1, 10, model_metadata, device)
+    train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, PRINT_UPDATE_INTERVAL, MODEL_SAVE_INTERVAL, model_metadata, device)
     # This version is if you want email updates
-    # train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, 20, 10, model_metadata, device, sendgrid_api_data)
+    # train_sequences(model, dataloader, loss_fn, loss_weights, optimizer, NUM_EPOCHS, PRINT_UPDATE_INTERVAL, MODEL_SAVE_INTERVAL, model_metadata, device, sendgrid_api_data)
     
