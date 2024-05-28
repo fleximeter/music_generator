@@ -124,8 +124,8 @@ def load_data(staff) -> list:
                         # accidental (symbolic)
                         current_note["accidental_name"] = item.pitch.accidental.name if item.pitch.accidental is not None else "None"
                         current_note["accidental"] = item.pitch.accidental.alter if item.pitch.accidental is not None else 0.0
-                        current_note["letter_accidental_name"] = f"{current_note["letter_name"]}|{current_note["accidental_name"]}"
-                        current_note["letter_accidental_octave_name"] = f"{current_note["letter_name"]}|{current_note["accidental_name"]}|{current_note["octave"]}"
+                        current_note["letter_accidental_name"] = f"{current_note['letter_name']}|{current_note['accidental_name']}"
+                        current_note["letter_accidental_octave_name"] = f"{current_note['letter_name']}|{current_note['accidental_name']}|{current_note['octave']}"
                         current_note["pitch_class_id"] = float(item.pitch.pitchClass)          # pitch class number 0, 1, 2, ... 11 (symbolic x13)
                         current_note["key_signature"] = current_key                            # key signature
                         current_note["mode"] = current_mode                                    # mode

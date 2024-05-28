@@ -23,7 +23,7 @@ To install on a Python virtualenv, run `pip install music21 numpy pytorch pytorc
 
 `dataset.py` - Contains the definition for a `torch.utils.data.Dataset` subclass, `MusicXMLDataSet`, that imports `music21.stream.Score` objects and converts them to sequences that can be fed into a model.
 
-`feature_definitions.py` - Defines features that can be extracted from a sequence of nots, and defines their one-hot representations.
+`feature_definitions.py` - Defines features that can be extracted from a sequence of notes, and defines their one-hot representations.
 
 `featurizer.py` - Contains functionality for featurizing scores, turning them into one-hot encodings, and processing predicted labels.
 
