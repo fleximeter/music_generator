@@ -2,8 +2,7 @@
 File: model_definition.py
 
 This file contains the neural network definition for the music sequence generator. 
-At this point it uses a LSTM model. It can take a variable number of output label 
-classes - you define the output sizes when initializing the model.
+At this point it uses a LSTM model.
 """
 
 import torch
@@ -36,7 +35,16 @@ class LSTMMusic(nn.Module):
 
         # The layers
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-        self.output_layers = [nn.Linear(hidden_size, output_size) for output_size in output_sizes]
+
+        # This is what you need to update if you are changing the number of output labels
+        # You have to list the output layers explicitly so they will be put on the appropriate device
+        self.output_layer1 = nn.Linear(hidden_size, output_sizes[0])
+        self.output_layer2 = nn.Linear(hidden_size, output_sizes[1])
+        # self.output_layer3 = nn.Linear(hidden_size, output_sizes[2])
+
+        # A convenience list to allow you to reference all of the output layers in a group
+        self.output_layers = [self.output_layer1, self.output_layer2]
+        # end update section
         
         # Track information about the model
         self.num_layers = num_layers
@@ -54,7 +62,7 @@ class LSTMMusic(nn.Module):
         :param x: The batch of sequences
         :param lengths: A Tensor with sequence lengths for the corresponding sequences
         :param hidden_states: A tuple of hidden state matrices
-        :return (y1, y2, y3), hidden: Returns a logit tuple
+        :return [], hidden: Returns a logit list
         [output logits] and updated hidden states
         """
         # pack the input, run it through the model, and unpack it

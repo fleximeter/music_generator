@@ -27,7 +27,7 @@ class MusicXMLDataSet(Dataset):
         :param score_list: A list of music21 scores to turn into a dataset
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length
-        :param label_keys: A tuple of label keys. Must match one of several predefined key sets
+        :param label_keys: A list of label keys. Must match one of several predefined key sets
         accepted by the featurizer.make_labels() function.
         """
         super(MusicXMLDataSet, self).__init__()
@@ -55,7 +55,7 @@ class MusicXMLDataSet(Dataset):
         """
         Parses each MusicXML file and generates sequences and labels from it
         :param score_list: A list of MusicXML files to turn into a dataset
-        :param label_keys: A tuple of label keys. Must match one of several predefined key sets
+        :param label_keys: A list of label keys. Must match one of several predefined key sets
         accepted by the featurizer.make_labels() function.
         """
         sequences = []
