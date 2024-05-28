@@ -179,25 +179,64 @@ def load_data(staff) -> list:
     return dataset
 
 
-def make_labels(x) -> list:
+def make_labels(x, label_keys) -> list:
     """
     Generates a label list for a list of sequences (2D tensors). The label is
     calculated for a particular index in dimension 1 of the 2D tensors.
     Dimension 1 is the batch length
     Dimension 2 is the total sequence length
     Dimension 3 is the features of individual notes in the sequence
+    This function is designed with the idea in mind that you might want different label sets. It
+    supports several different label combinations.
     :param x: A list of sequences
-    :return: A list of label tuples. Each label tuple has 3 labels (letter name + accidental name, octave, quarter length).
+    :param label_keys: A tuple of label keys. Must match one of these predefined key sets:
+    ("letter_accidental_octave_name", "quarterLength")
+    ("letter_accidental_name", "octave", "quarterLength")
+    ("pitch_class_id", "octave", "quarterLength")
+    ("pitch_class_id", "quarterLength")
+    :return: A list of label tuples.
     """
     y = []
-    i = (
-        (0, len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING)), 
-        (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING))
-        )
-    for sequence in x:
-        letter_accidental_octave = sequence[-1, i[0][0]:i[0][1]]
-        quarter_length = sequence[-1, i[1][0]:i[1][1]]
-        y.append((letter_accidental_octave.argmax().item(), quarter_length.argmax().item()))
+    if label_keys == ("letter_accidental_octave_name", "quarterLength"):
+        i = (
+            (0, len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING)), 
+            (len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING))
+            )
+        for sequence in x:
+            letter_accidental_octave = sequence[-1, i[0][0]:i[0][1]]
+            quarter_length = sequence[-1, i[1][0]:i[1][1]]
+            y.append((letter_accidental_octave.argmax().item(), quarter_length.argmax().item()))
+    elif label_keys == ("letter_accidental_name", "octave", "quarterLength"):
+        i = (
+            (0, len(feature_definitions.LETTER_ACCIDENTAL_ENCODING)), 
+            (len(feature_definitions.LETTER_ACCIDENTAL_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_ENCODING) + len(feature_definitions.OCTAVE_ENCODING)),
+            (len(feature_definitions.LETTER_ACCIDENTAL_ENCODING) + len(feature_definitions.OCTAVE_ENCODING), len(feature_definitions.LETTER_ACCIDENTAL_ENCODING) + len(feature_definitions.OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING))
+            )
+        for sequence in x:
+            letter_accidental = sequence[-1, i[0][0]:i[0][1]]
+            octave = sequence[-1, i[1][0]:i[1][1]]
+            quarter_length = sequence[-1, i[2][0]:i[2][1]]
+            y.append((letter_accidental.argmax().item(), octave.argmax().item(), quarter_length.argmax().item()))
+    elif label_keys == ("pitch_class_id", "octave", "quarterLength"):
+        i = (
+            (0, len(feature_definitions.PITCH_CLASS_ENCODING)), 
+            (len(feature_definitions.PITCH_CLASS_ENCODING), len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.OCTAVE_ENCODING)),
+            (len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.OCTAVE_ENCODING), len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.OCTAVE_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING))
+            )
+        for sequence in x:
+            pitch_class = sequence[-1, i[0][0]:i[0][1]]
+            octave = sequence[-1, i[1][0]:i[1][1]]
+            quarter_length = sequence[-1, i[2][0]:i[2][1]]
+            y.append((pitch_class.argmax().item(), octave.argmax().item(), quarter_length.argmax().item()))
+    elif label_keys == ("pitch_class_id", "quarterLength"):
+        i = (
+            (0, len(feature_definitions.PITCH_CLASS_ENCODING)), 
+            (len(feature_definitions.PITCH_CLASS_ENCODING), len(feature_definitions.PITCH_CLASS_ENCODING) + len(feature_definitions.QUARTER_LENGTH_ENCODING))
+            )
+        for sequence in x:
+            pitch_class = sequence[-1, i[0][0]:i[0][1]]
+            quarter_length = sequence[-1, i[1][0]:i[1][1]]
+            y.append((pitch_class.argmax().item(), quarter_length.argmax().item()))
     return y
 
 
