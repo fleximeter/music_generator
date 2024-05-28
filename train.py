@@ -131,9 +131,9 @@ if __name__ == "__main__":
     #######################################################################################
     
     PATH = "./data/train"              # The path to the training corpus
-    FILE_NAME = "./data/model13.json"  # The path to the model metadata JSON file
+    FILE_NAME = "./data/model14.json"  # The path to the model metadata JSON file
     RETRAIN = False                    # Whether or not to continue training the same model
-    NUM_EPOCHS = 100                   # The number of epochs to train
+    NUM_EPOCHS = 800                   # The number of epochs to train
     LEARNING_RATE = 0.001              # The model learning rate
     
     # The model metadata - save to JSON file
@@ -141,11 +141,11 @@ if __name__ == "__main__":
         "model_name": "bach",
         "path": FILE_NAME,
         "training_sequence_min_length": 2,
-        "training_sequence_max_length": 30,
-        "num_layers": 4,
+        "training_sequence_max_length": 20,
+        "num_layers": 8,
         "hidden_size": 1024,
         "batch_size": 200,
-        "state_dict": "./data/music_sequencer_13.pth",
+        "state_dict": "./data/music_sequencer_14.pth",
         "num_features": feature_definitions.NUM_FEATURES,
         "output_sizes": [len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.QUARTER_LENGTH_ENCODING)],
         "loss": None
@@ -161,6 +161,7 @@ if __name__ == "__main__":
     except Exception:
         pass
 
+    print("Loading dataset...")
     # Get the corpus and prepare it as a dataset
     # scores = music_finder.prepare_directory(PATH, device)
     scores = corpus.get_m21_corpus('bach')
@@ -182,19 +183,21 @@ if __name__ == "__main__":
     # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
     #######################################################################################
     
+    sequence_dataset = dataset.MusicXMLDataSet(scores, model_metadata["training_sequence_min_length"], 
+                                               model_metadata["training_sequence_max_length"])
+    dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=8)
+    print("Dataset loaded.")
+
     # Prefer CUDA if available, otherwise MPS (if on Apple), or CPU as a last-level default
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"Using device {device}")
     
-    sequence_dataset = dataset.MusicXMLDataSet(scores, model_metadata["training_sequence_min_length"], 
-                                               model_metadata["training_sequence_max_length"])
-    dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=8)
-        
     # Load and prepare the model. If retraining the model, we will need to load the
     # previous state dictionary so that we aren't training from scratch.
     model = model_definition.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
                                       model_metadata["hidden_size"], model_metadata["num_layers"], device).to(device)
     if RETRAIN:
+        print(f"Retraining model from state dict {model_metadata['state_dict']}")
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
     loss_fn = [nn.CrossEntropyLoss() for i in range(len(model_metadata["output_sizes"]))]
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
