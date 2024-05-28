@@ -28,8 +28,7 @@ def predict_from_sequence(model, sequence, training_sequence_max_length) -> Tupl
     """
     s, l = dataset.MusicXMLDataSet.prepare_prediction(sequence, training_sequence_max_length)
     prediction, hidden = model(s, l, model.init_hidden())
-    predicted_note = featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item(), 
-                                                                 prediction[-1].argmax().item()))
+    predicted_note = featurizer.retrieve_class_dictionary([predict.argmax().item() for predict in prediction])
     return predicted_note, hidden
 
 
@@ -47,8 +46,7 @@ def predict_next_note(model, current_note, hidden, training_sequence_max_length)
     """
     s, l = dataset.MusicXMLDataSet.prepare_prediction(current_note, training_sequence_max_length)
     prediction, hidden = model(s, l, hidden)
-    predicted_note = featurizer.retrieve_class_dictionary((prediction[0].argmax().item(), prediction[1].argmax().item(), 
-                                                                 prediction[-1].argmax().item()))
+    predicted_note = featurizer.retrieve_class_dictionary([predict.argmax().item() for predict in prediction])
     return predicted_note, hidden
 
 
@@ -57,7 +55,7 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt6.musicxml"  # Only the top staff will be considered
+    MUSICXML_PROMPT_FILE = "./data/prompt7.musicxml"  # Only the top staff will be considered
     MODEL_METADATA_FILE = "./data/model13.json"
     NOTES_TO_PREDICT = 25
 
@@ -89,7 +87,7 @@ if __name__ == "__main__":
         
         # Load the model state dictionary from file
         model = model_definition.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
-                                          model_metadata["hidden_size"], model_metadata["num_layers"])
+                                           model_metadata["hidden_size"], model_metadata["num_layers"])
         model.load_state_dict(torch.load(model_metadata["state_dict"]))
         
         # Predict the next N notes
