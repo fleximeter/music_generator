@@ -27,7 +27,8 @@ def convert_letter_accidental_octave_to_note(letter_name, accidental_name, octav
     """
     PC_MAP = {'C': 0.0, 'D': 2.0, 'E': 4.0, 'F': 5.0, 'G': 7.0, 'A': 9.0, 'B': 11.0}
     note = {}
-
+    note["letter_accidental_name"] = f"{letter_name}|{accidental_name}"
+    note["letter_accidental_octave_name"] = f"{letter_name}|{accidental_name}|{octave}"
     if letter_name != "None" and octave != "None":
         note["octave"] = int(float(octave))
         note["letter_name"] = letter_name
@@ -75,7 +76,8 @@ def convert_pc_octave_to_note(pc, octave) -> dict:
         note["letter_name"] = "None"
         note["accidental"] = "None"
         note["accidental_name"] = "None"
-
+    note["letter_accidental_name"] = f"{note["letter_name"]}|{note["accidental_name"]}"
+    note["letter_accidental_octave_name"] = f"{note["letter_name"]}|{note["accidental_name"]}|{note["octave"]}"
     return note
 
 
@@ -295,20 +297,36 @@ def make_one_hot_features(dataset: list, batched=True) -> torch.Tensor:
     return instances
 
 
-def retrieve_class_dictionary(prediction: tuple) -> dict:
+def retrieve_class_dictionary(prediction: list, label_keys) -> dict:
     """
     Retrives a predicted class's information based on its id
     :param prediction: The prediction tuple
+    :param label_keys: A list of label keys. Must match one of these predefined key sets:
+    ["letter_accidental_octave_name", "quarterLength"]
+    ["letter_accidental_name", "octave", "quarterLength"]
+    ["pitch_class_id", "octave", "quarterLength"]
+    ["pitch_class_id", "quarterLength"]
     :return: The prediction dictionary
     """
-    letter_accidental_octave_name = feature_definitions.REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[prediction[0]]
-    letter, accidental, octave = letter_accidental_octave_name.split('|')
-    note = {"letter_accidental_octave_name": letter_accidental_octave_name, "letter_accidental_name": f"{letter}|{accidental}", "quarterLength": Fraction(feature_definitions.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
-    # letter_accidental_name = music_features.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
-    # letter, accidental = letter_accidental_name.split('|')
-    # octave = music_features.REVERSE_OCTAVE_ENCODING[prediction[1]]
-    # note = {"letter_accidental_octave_name": f"{letter_accidental_name}|{octave}", "letter_accidental_name": letter_accidental_name, "quarterLength": Fraction(music_features.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])}
-    note.update(convert_letter_accidental_octave_to_note(letter, accidental, octave))
+    note = {}
+    if label_keys == ["letter_accidental_octave_name", "quarterLength"]:
+        letter_accidental_octave_name = feature_definitions.REVERSE_LETTER_ACCIDENTAL_OCTAVE_ENCODING[prediction[0]]
+        letter, accidental, octave = letter_accidental_octave_name.split('|')
+        note["quarterLength"] = Fraction(feature_definitions.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])
+        note.update(convert_letter_accidental_octave_to_note(letter, accidental, octave))
+    elif label_keys == ["letter_accidental_name", "octave", "quarterLength"]:
+        letter_accidental_name = feature_definitions.REVERSE_LETTER_ACCIDENTAL_ENCODING[prediction[0]]
+        letter, accidental = letter_accidental_name.split('|')
+        octave = feature_definitions.REVERSE_OCTAVE_ENCODING[prediction[1]]
+        note["quarterLength"] = Fraction(feature_definitions.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])
+        note.update(convert_letter_accidental_octave_to_note(letter, accidental, octave))
+    elif label_keys == ["pitch_class_id", "octave", "quarterLength"]:
+        note.update(convert_pc_octave_to_note(feature_definitions.REVERSE_PITCH_CLASS_ENCODING[prediction[0]], 
+                                              feature_definitions.REVERSE_OCTAVE_ENCODING[prediction[1]]))
+        note["quarterLength"] = Fraction(feature_definitions.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])
+    elif label_keys == ["pitch_class_id", "quarterLength"]:
+        note.update(convert_pc_octave_to_note(feature_definitions.REVERSE_PITCH_CLASS_ENCODING[prediction[0]], 4))
+        note["quarterLength"] = Fraction(feature_definitions.REVERSE_QUARTER_LENGTH_ENCODING[prediction[-1]])
     return note
 
 
