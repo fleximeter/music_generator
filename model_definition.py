@@ -1,9 +1,9 @@
 """
 File: model_definition.py
 
-This file contains the neural network definition for the music sequence generator. 
-At this point it uses a LSTM model. It can take a variable number of output label 
-classes - you define the output sizes when initializing the model.
+This file contains the neural network definition for the music sequence
+generator. At this point it uses a LSTM model and outputs three labels:
+pitch class, octave, and quarter length.
 """
 
 import torch
@@ -27,18 +27,19 @@ class LSTMMusic(nn.Module):
         """
         Initializes the music LSTM
         :param input_size: The input size
-        :param output_sizes: A list of output sizes. A separate output layer will be created for each entry in the list.
+        :param output_size_letter_name: The number of output categories for note letter name
+        :param output_size_accidental_name: The number of output categories for note accidental name
+        :param output_size_octave: The number of output categories for octave
+        :param output_size_quarter_length: The number of output categories for quarter length
         :param hidden_size: The size of the hidden state vector
         :param num_layers: The number of layers to use
-        :param device: The device that the model will run on
         """
         super(LSTMMusic, self).__init__()
-
-        # The layers
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-        self.output_layers = [nn.Linear(hidden_size, output_size) for output_size in output_sizes]
-        
-        # Track information about the model
+
+        # The output layers
+        self.output_letter_accidental_octave_name = nn.Linear(hidden_size, output_sizes[0])
+        self.output_quarter_length = nn.Linear(hidden_size, output_sizes[-1])
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.device = device
@@ -48,14 +49,14 @@ class LSTMMusic(nn.Module):
             if "weight" in name:
                 nn.init.kaiming_uniform_(param, mode="fan_in", nonlinearity="relu")
 
-    def forward(self, x, lengths, hidden_states) -> Tuple[list, tuple]:
+    def forward(self, x, lengths, hidden_states) -> Tuple[tuple, tuple]:
         """
         Runs a batch of sequences forward through the model
         :param x: The batch of sequences
         :param lengths: A Tensor with sequence lengths for the corresponding sequences
         :param hidden_states: A tuple of hidden state matrices
         :return (y1, y2, y3), hidden: Returns a logit tuple
-        [output logits] and updated hidden states
+        (letter accidental name logits, octave logits, quarter length logits) and updated hidden states
         """
         # pack the input, run it through the model, and unpack it
         packed_input = pack_padded_sequence(x, lengths, batch_first=True)
@@ -67,8 +68,9 @@ class LSTMMusic(nn.Module):
         last_output = output.gather(1, idx).squeeze(1)
         
         # run the LSTM output through the final layers to generate the logits
-        output_logits = [output(last_output) for output in self.output_layers]
-        return output_logits, hidden_states
+        letter_accidental_octave_name_logits = self.output_letter_accidental_octave_name(last_output)
+        quarter_length_logits = self.output_quarter_length(last_output)
+        return (letter_accidental_octave_name_logits, quarter_length_logits), hidden_states
     
     def init_hidden(self, batch_size=1) -> Tuple[torch.Tensor, torch.Tensor]:
         """

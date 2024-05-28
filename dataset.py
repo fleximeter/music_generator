@@ -21,19 +21,17 @@ class MusicXMLDataSet(Dataset):
     vary, it is necessary to provide a collate function to the DataLoader, and a
     collate function is provided as a static function in this class.
     """
-    def __init__(self, score_list, min_sequence_length, max_sequence_length, label_keys) -> None:
+    def __init__(self, score_list, min_sequence_length, max_sequence_length) -> None:
         """
         Makes a MusicXMLDataSet
         :param score_list: A list of music21 scores to turn into a dataset
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length
-        :param label_keys: A tuple of label keys. Must match one of several predefined key sets
-        accepted by the featurizer.make_labels() function.
         """
         super(MusicXMLDataSet, self).__init__()
         self.min_sequence_length = min_sequence_length
         self.max_sequence_length = max_sequence_length
-        self.data, self.labels = self._load_data(score_list, label_keys)
+        self.data, self.labels = self._load_data(score_list)
         
     def __len__(self) -> int:
         """
@@ -51,12 +49,10 @@ class MusicXMLDataSet(Dataset):
         label = self.labels[idx]
         return sample, *label
     
-    def _load_data(self, score_list, label_keys) -> Tuple[list, list]:
+    def _load_data(self, score_list) -> Tuple[list, list]:
         """
         Parses each MusicXML file and generates sequences and labels from it
         :param score_list: A list of MusicXML files to turn into a dataset
-        :param label_keys: A tuple of label keys. Must match one of several predefined key sets
-        accepted by the featurizer.make_labels() function.
         """
         sequences = []
         labels = []
@@ -68,7 +64,7 @@ class MusicXMLDataSet(Dataset):
                 data = featurizer.make_one_hot_features(data, False)
                 for j in range(self.min_sequence_length, self.max_sequence_length + 1):
                     seq = featurizer.make_n_gram_sequences(data, j+1)
-                    lab = featurizer.make_labels(seq, label_keys)
+                    lab = featurizer.make_labels(seq)
 
                     # trim the last entry off the sequence, because it is the label
                     sequences += [s[:-1, :] for s in seq]
@@ -87,13 +83,12 @@ class MusicXMLDataSet(Dataset):
         """
         # Sort the batch in order of sequence length. This is required by the pack_padded_sequences function. 
         batch.sort(key=lambda x: len(x[0]), reverse=True)
-        zipped_batch = list(zip(*batch))
-        sequences = zipped_batch[0]
-        targets = zipped_batch[1:]
+        sequences, targets1, targets2 = zip(*batch)
         lengths = torch.tensor([seq.shape[0] for seq in sequences])
         sequences_padded = pad_sequence(sequences, batch_first=True, padding_value=0.0)
-        targets = [torch.tensor(target) for target in targets]
-        return sequences_padded, *targets, lengths
+        targets1 = torch.tensor(targets1)
+        targets2 = torch.tensor(targets2)
+        return sequences_padded, targets1, targets2, lengths
     
     def prepare_prediction(sequence, max_length) -> Tuple[torch.Tensor, torch.Tensor]:
         """

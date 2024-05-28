@@ -29,9 +29,6 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
     of sequences in randomized order. The DataLoader takes care of serving up labels as well.
     This function will output a routine status message with loss and estimated time remaining.
     The model state is routinely saved to disk, so you can use it while it is training.
-
-    You can use this function with different output label categories, as long as you provide
-    the right number of loss functions (and appropriate loss functions for each label).
          
     :param model: The model to train
     :param dataloader: The dataloader
@@ -55,29 +52,24 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
         num_batches_this_epoch = 0
 
         # Iterate through each batch in the dataloader. The batch will have 3 labels per sequence.
-        # for x, y1, y2, lengths in dataloader:
-        for batch in dataloader:
+        for x, y1, y2, lengths in dataloader:
             optimizer.zero_grad()
 
             # Prepare for running through the net
-            x = batch[0].to(device)
-            lengths = batch[-1]
+            x = x.to(device)
+            y1 = y1.to(device)
+            y2 = y2.to(device)
+            y = (y1, y2)
             hidden = model.init_hidden(x.shape[0])
-
-            # Collect the target labels for the batch. Each label class is a tensor of labels
-            # for the corresponding instances.
-            target_labels = [batch[i].to(device) for i in range(1, len(batch) - 2)]
-
+            
             # This is necessary because of the size of the output labels.
             model.lstm.flatten_parameters()
 
             # Run the current batch through the net
             output, _ = model(x, lengths, hidden)
 
-            # Compute loss for each target class separately
-            loss = [loss_fns[i](output[i], target_labels[i]) * loss_weights[i] for i in range(len(target_labels))]
-            
-            # Get the total loss for this batch
+            # Compute loss
+            loss = [loss_fns[i](output[i], y[i]) * loss_weights[i] for i in range(len(y))]
             total_loss = sum(loss)
             total_loss_this_epoch += total_loss.item()
             num_batches_this_epoch += 1
@@ -140,7 +132,7 @@ if __name__ == "__main__":
     
     PATH = "./data/train"              # The path to the training corpus
     FILE_NAME = "./data/model14.json"  # The path to the model metadata JSON file
-    RETRAIN = True                    # Whether or not to continue training the same model
+    RETRAIN = False                    # Whether or not to continue training the same model
     NUM_EPOCHS = 800                   # The number of epochs to train
     LEARNING_RATE = 0.001              # The model learning rate
     
@@ -191,9 +183,8 @@ if __name__ == "__main__":
     # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
     #######################################################################################
     
-    sequence_dataset = dataset.MusicXMLDataSet(scores, min_sequence_length=model_metadata["training_sequence_min_length"], 
-                                               max_sequence_length=model_metadata["training_sequence_max_length"],
-                                               label_keys=("letter_accidental_octave_name", "quarterLength"))
+    sequence_dataset = dataset.MusicXMLDataSet(scores, model_metadata["training_sequence_min_length"], 
+                                               model_metadata["training_sequence_max_length"])
     dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=8)
     print("Dataset loaded.")
 
