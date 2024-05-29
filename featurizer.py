@@ -7,6 +7,7 @@ sequences.
 """
 
 import feature_definitions
+import json
 import torch
 import torch.nn.functional as F
 import math
@@ -74,6 +75,22 @@ def convert_pc_octave_to_note(pc, octave) -> dict:
         note["accidental_name"] = "None"
 
     return note
+
+
+def load_json_corpus(json_corpus_file) -> list:
+    """
+    Loads a JSON corpus and prepares it for tokenization
+    :param json_corpus_file: The file with the JSON corpus
+    :return: The loaded corpus as a list (of lists of note dictionaries)
+    """
+    processed_score_list = []
+    with open(json_corpus_file, "r") as output_json:
+        processed_score_list = json.loads(output_json.read())
+    for score in processed_score_list:
+        for note in score:
+            note["quarterLength"] = Fraction(note["quarterLength"])
+            note["beat"] = Fraction(note["beat"])
+    return processed_score_list
 
 
 def make_labels(x) -> list:
