@@ -56,7 +56,7 @@ if __name__ == "__main__":
     #######################################################################################
 
     MUSICXML_PROMPT_FILE = "./data/prompt7.musicxml"  # Only the top staff will be considered
-    MODEL_METADATA_FILE = "./data/model13.json"
+    MODEL_METADATA_FILE = "./data/model14.json"
     NOTES_TO_PREDICT = 25
 
     #######################################################################################

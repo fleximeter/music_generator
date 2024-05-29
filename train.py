@@ -14,6 +14,7 @@ import feature_definitions
 import corpus
 import model_definition
 import music21
+import music21bindings
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -131,9 +132,9 @@ if __name__ == "__main__":
     #######################################################################################
         
     PATH = "./data/train"                    # The path to the training corpus
-    FILE_NAME = "./data/model14.json"        # The path to the model metadata JSON file
+    FILE_NAME = "./data/model15.json"        # The path to the model metadata JSON file
     RETRAIN = False                          # Whether or not to continue training the same model
-    NUM_EPOCHS = 100                         # The number of epochs to train
+    NUM_EPOCHS = 100                        # The number of epochs to train
     LEARNING_RATE = 0.001                    # The model learning rate
     NUM_DATALOADER_WORKERS = 8               # The number of workers for the dataloader
     PRINT_UPDATE_INTERVAL = 1                # The epoch interval for printing training status
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         "num_layers": 4,
         "hidden_size": 1024,
         "batch_size": 200,
-        "state_dict": "./data/music_sequencer_14.pth",
+        "state_dict": "./data/music_sequencer_16.pth",
         "num_features": feature_definitions.NUM_FEATURES,
         "output_sizes": [len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.QUARTER_LENGTH_ENCODING)],
         "loss": None
@@ -185,8 +186,16 @@ if __name__ == "__main__":
     #######################################################################################
     # YOU PROBABLY DON'T NEED TO EDIT ANYTHING BELOW HERE
     #######################################################################################
-    
-    sequence_dataset = dataset.MusicXMLDataSet(scores, model_metadata["training_sequence_min_length"], 
+
+    # Read and featurize the scores in preparation for loading them into the dataset
+    processed_score_list = []
+    for score in scores:
+        # Go through each staff in each score, and generate individual
+        # sequences and labels for that staff
+        for i in music21bindings.get_staff_indices(score):
+            processed_score_list.append(music21bindings.load_data(score[i]))
+
+    sequence_dataset = dataset.MusicXMLDataSet(processed_score_list, model_metadata["training_sequence_min_length"], 
                                                model_metadata["training_sequence_max_length"])
     dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, collate_fn=dataset.MusicXMLDataSet.collate, num_workers=NUM_DATALOADER_WORKERS)
     print("Dataset loaded.")
