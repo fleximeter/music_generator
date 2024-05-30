@@ -12,10 +12,22 @@ import json
 import feature_definitions
 import featurizer
 import model_definition
+import os
 import torch
+import torch.distributed
+import torch.multiprocessing as mp
 import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel
 import torch.optim as optim
 from torch.utils.data import DataLoader
+
+
+def setup_parallel(rank, world_size):
+    torch.distributed.init_process_group("nccl", rank=rank, world_size=world_size)
+
+
+def cleanup():
+    torch.distributed.destroy_process_group()
 
 
 def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_epochs, status_interval, 
@@ -38,8 +50,16 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
     :param device: The device that is being used for training
     """
 
-    t = datetime.datetime.now()
-    total_time = datetime.timedelta()
+    training_stats = {
+        "time": datetime.datetime.now(), 
+        "total_time": datetime.timedelta(), 
+        "last_epoch_duration": datetime.timedelta(),
+        "seconds_remaining": 0.0,
+        "average_loss_this_epoch": 0.0,
+        "last_completed_epoch": 0,
+        "total_epochs": num_epochs,
+        "status_interval": status_interval
+    }
 
     for epoch in range(num_epochs):        
         # Track the total loss and number of batches processed this epoch
@@ -76,43 +96,61 @@ def train_sequences(model, dataloader, loss_fns, loss_weights, optimizer, num_ep
         
         # Generate status. The status consists of the epoch number, average loss, epoch completion
         # time, epoch duration (MM:SS), and estimated time remaining (HH:MM:SS).
+        training_stats["last_completed_epoch"] = epoch
         time_new = datetime.datetime.now()
-        delta = time_new - t
-        total_time += delta
-        t = time_new
-        seconds_remaining = int((total_time.seconds / (epoch + 1)) * (num_epochs - epoch - 1))
-        average_loss_this_epoch = round(total_loss_this_epoch / num_batches_this_epoch, 4)
-        status_message = "----------------------------------------------------------------------\n" + \
-                         "epoch {0:<4}\nloss: {1:<6} | completion time: {2} | epoch duration (MM:SS): {3:02}:{4:02}\n" + \
-                         "est. time remaining (HH:MM:SS): {5:02}:{6:02}:{7:02}\n"
-        status_message = status_message.format(
-                epoch+1, average_loss_this_epoch, t.strftime("%m-%d %H:%M:%S"), 
-                delta.seconds // 60, delta.seconds % 60, 
-                seconds_remaining // (60 ** 2), seconds_remaining // 60 % 60, seconds_remaining % 60
-            )
-        
-        # Output status
-        if status_interval is not None and epoch % status_interval == status_interval - 1:
-            print(status_message)
+        training_stats["last_epoch_duration"] = time_new - training_stats["time"]
+        training_stats["total_time"] += training_stats["last_epoch_duration"]
+        training_stats["time"] = time_new
+        training_stats["average_loss_this_epoch"] = round(total_loss_this_epoch / num_batches_this_epoch, 4)
+        status_output(training_stats)
 
         # Save to disk if it is the right epoch interval
         if epoch % save_interval == save_interval - 1:
-            model_metadata["loss"] = average_loss_this_epoch
+            model_metadata["loss"] = training_stats["average_loss_this_epoch"]
             with open(FILE_NAME, "w") as model_json_file:
                 model_json_file.write(json.dumps(model_metadata))
             torch.save(model.state_dict(), model_metadata["state_dict"])
             print("Saved to disk\n")
 
 
-if __name__ == "__main__":        
-    PATH = "/Users/jmartin50/music_generator/data/train"                    # The path to the training corpus
-    FILE_NAME = "/Users/jmartin50/music_generator/data/model21.json"        # The path to the model metadata JSON file
-    NUM_EPOCHS = 2000                        # The number of epochs to train
-    LEARNING_RATE = 0.001                    # The model learning rate
-    NUM_DATALOADER_WORKERS = 8               # The number of workers for the dataloader
-    PRINT_UPDATE_INTERVAL = 1                # The epoch interval for printing training status
-    MODEL_SAVE_INTERVAL = 10                 # The epoch interval for saving the model
-    JSON_CORPUS = "/Users/jmartin50/music_generator/data/corpus1.json"        # The JSON corpus to use
+def status_output(training_stats):
+    """
+    Outputs training status
+    :param training_stats: A dictionary with training statistics
+    """
+    seconds_remaining = int((training_stats["total_time"].seconds / (training_stats["last_completed_epoch"] + 1)) * \
+                            (training_stats["total_epochs"] - training_stats["last_completed_epoch"] - 1))
+    
+    status_message = "----------------------------------------------------------------------\n" + \
+                     "epoch {0:<4}\nloss: {1:<6} | completion time: {2} | epoch duration (MM:SS): " + \
+                     "{3:02}:{4:02}\nest. time remaining (HH:MM:SS): {5:02}:{6:02}:{7:02}\n"
+    status_message = status_message.format(
+        training_stats["last_completed_epoch"] + 1, training_stats["average_loss_this_epoch"], 
+        training_stats["last_epoch_duration"].strftime("%m-%d %H:%M:%S"), 
+        training_stats["average_loss_this_epoch"].seconds // 60, 
+        training_stats["last_epoch_duration"].seconds % 60, 
+        seconds_remaining // (60 ** 2), 
+        seconds_remaining // 60 % 60, 
+        seconds_remaining % 60
+    )
+    
+    # Output status
+    if training_stats["status_interval"] is not None and \
+        training_stats["last_completed_epoch"] % training_stats["status_interval"] == training_stats["status_interval"] - 1:
+        print(status_message)
+
+
+if __name__ == "__main__":
+    ROOT_PATH = "/Users/jmartin50/music_generator"
+    PATH = os.path.join(ROOT_PATH, "data/train")                # The path to the training corpus
+    FILE_NAME = os.path.join(ROOT_PATH, "data/model22.json")    # The path to the model metadata JSON file
+    RETRAIN = False                                             # Whether or not to continue training the same model
+    NUM_EPOCHS = 500                                           # The number of epochs to train
+    LEARNING_RATE = 0.001                                       # The model learning rate
+    NUM_DATALOADER_WORKERS = 16                                 # The number of workers for the dataloader
+    PRINT_UPDATE_INTERVAL = 1                                   # The epoch interval for printing training status
+    MODEL_SAVE_INTERVAL = 10                                    # The epoch interval for saving the model
+    JSON_CORPUS = os.path.join(ROOT_PATH, "data/corpus1.json")  # The JSON corpus to use
     
     # The model metadata - save to JSON file
     model_metadata = {
@@ -120,10 +158,10 @@ if __name__ == "__main__":
         "path": FILE_NAME,
         "training_sequence_min_length": 2,
         "training_sequence_max_length": 20,
-        "num_layers": 10,
+        "num_layers": 8,
         "hidden_size": 1024,
         "batch_size": 1000,
-        "state_dict": "/Users/jmartin50/music_generator/data/music_sequencer_21.pth",
+        "state_dict": os.path.join(ROOT_PATH, "data/music_sequencer_22.pth"),
         "num_features": feature_definitions.NUM_FEATURES,
         "output_sizes": [len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.QUARTER_LENGTH_ENCODING)],
         "loss": None
@@ -147,6 +185,9 @@ if __name__ == "__main__":
     # previous state dictionary so that we aren't training from scratch.
     model = model_definition.LSTMMusic(model_metadata["num_features"], model_metadata["output_sizes"], 
                                       model_metadata["hidden_size"], model_metadata["num_layers"], device).to(device)
+    if RETRAIN:
+        print(f"Retraining model from state dict {model_metadata['state_dict']}")
+        model.load_state_dict(torch.load(model_metadata["state_dict"]))
     loss_fn = [nn.CrossEntropyLoss() for i in range(len(model_metadata["output_sizes"]))]
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     loss_weights = torch.tensor([1.0, 1.0])  # emphasize the loss of the accidental
