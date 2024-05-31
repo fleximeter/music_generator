@@ -126,8 +126,8 @@ def status_output(training_stats):
                      "{3:02}:{4:02}\nest. time remaining (HH:MM:SS): {5:02}:{6:02}:{7:02}\n"
     status_message = status_message.format(
         training_stats["last_completed_epoch"] + 1, training_stats["average_loss_this_epoch"], 
-        training_stats["last_epoch_duration"].strftime("%m-%d %H:%M:%S"), 
-        training_stats["average_loss_this_epoch"].seconds // 60, 
+        training_stats["time"].strftime("%m-%d %H:%M:%S"), 
+        training_stats["last_epoch_duration"].seconds // 60, 
         training_stats["last_epoch_duration"].seconds % 60, 
         seconds_remaining // (60 ** 2), 
         seconds_remaining // 60 % 60, 
