@@ -6,6 +6,7 @@ scratch, or you can choose to continue training a model that was previously save
 to disk. The training function will output status messages and save periodically.
 """
 
+import corpus
 import dataset
 import datetime
 import json
@@ -13,6 +14,7 @@ import feature_definitions
 import featurizer
 import model_definition
 import os
+from pathlib import Path
 import torch
 import torch.distributed
 import torch.multiprocessing as mp
@@ -141,17 +143,22 @@ def status_output(training_stats):
 
 
 if __name__ == "__main__":
-    ROOT_PATH = "/Users/jmartin50/music_generator"
+    MODEL_SUFFIX = "_8_13_24"                                   # The suffix for the current model
+    ROOT_PATH = "/Users/jmartin50/source/music_generator"              # Specifies the absolute root directory
     PATH = os.path.join(ROOT_PATH, "data/train")                # The path to the training corpus
-    FILE_NAME = os.path.join(ROOT_PATH, "data/model22.json")    # The path to the model metadata JSON file
+    FILE_NAME = os.path.join(ROOT_PATH, f"data/model{MODEL_SUFFIX}.json")    # The path to the model metadata JSON file
     RETRAIN = False                                             # Whether or not to continue training the same model
-    NUM_EPOCHS = 500                                           # The number of epochs to train
+    NUM_EPOCHS = 500                                            # The number of epochs to train
     LEARNING_RATE = 0.001                                       # The model learning rate
     NUM_DATALOADER_WORKERS = 16                                 # The number of workers for the dataloader
     PRINT_UPDATE_INTERVAL = 1                                   # The epoch interval for printing training status
     MODEL_SAVE_INTERVAL = 10                                    # The epoch interval for saving the model
     JSON_CORPUS = os.path.join(ROOT_PATH, "data/corpus1.json")  # The JSON corpus to use
-    
+    COMPOSER_CORPUS = "bach"
+
+    # Make the train directory if it doesn't exist already
+    Path(PATH).mkdir(parents=True, exist_ok=True)
+
     # The model metadata - save to JSON file
     model_metadata = {
         "model_name": "bach",
@@ -161,7 +168,7 @@ if __name__ == "__main__":
         "num_layers": 8,
         "hidden_size": 1024,
         "batch_size": 1000,
-        "state_dict": os.path.join(ROOT_PATH, "data/music_sequencer_22.pth"),
+        "state_dict": os.path.join(ROOT_PATH, f"data/music_sequencer{MODEL_SUFFIX}.pth"),
         "num_features": feature_definitions.NUM_FEATURES,
         "output_sizes": [len(feature_definitions.LETTER_ACCIDENTAL_OCTAVE_ENCODING), len(feature_definitions.QUARTER_LENGTH_ENCODING)],
         "loss": None
@@ -170,9 +177,12 @@ if __name__ == "__main__":
         model_json_file.write(json.dumps(model_metadata))
 
     print("Loading dataset...\n")
-    sequence_dataset = dataset.MusicXMLDataSet(featurizer.load_json_corpus(JSON_CORPUS), 
-                                               model_metadata["training_sequence_min_length"], 
+    sequence_dataset = dataset.MusicXMLDataSet(corpus.get_m21_corpus(COMPOSER_CORPUS),
+                                               model_metadata["training_sequence_min_length"],
                                                model_metadata["training_sequence_max_length"])
+    # sequence_dataset = dataset.MusicXMLDataSet(featurizer.load_json_corpus(JSON_CORPUS), 
+    #                                            model_metadata["training_sequence_min_length"], 
+    #                                            model_metadata["training_sequence_max_length"])
     dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, 
                             collate_fn=dataset.MusicXMLDataSet.collate, num_workers=NUM_DATALOADER_WORKERS)
     print("Dataset loaded.\n")
