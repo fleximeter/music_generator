@@ -5,6 +5,7 @@ This module loads a music21 corpus, processes it, and saves it to a JSON file in
 preparation for running on a HPC system.
 """
 
+from pathlib import Path
 import music21
 import music21bindings
 import json
@@ -44,6 +45,7 @@ if __name__ == "__main__":
             note["beat"] = str(note["beat"])
 
     # Output to JSON
+    Path("data").mkdir(parents=True, exist_ok=True)
     with open("data/corpus1.json", "w") as output_json:
         output_json.write(json.dumps(processed_score_list))
     

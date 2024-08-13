@@ -154,7 +154,6 @@ if __name__ == "__main__":
     PRINT_UPDATE_INTERVAL = 1                                   # The epoch interval for printing training status
     MODEL_SAVE_INTERVAL = 10                                    # The epoch interval for saving the model
     JSON_CORPUS = os.path.join(ROOT_PATH, "data/corpus1.json")  # The JSON corpus to use
-    COMPOSER_CORPUS = "bach"
 
     # Make the train directory if it doesn't exist already
     Path(PATH).mkdir(parents=True, exist_ok=True)
@@ -177,12 +176,9 @@ if __name__ == "__main__":
         model_json_file.write(json.dumps(model_metadata))
 
     print("Loading dataset...\n")
-    sequence_dataset = dataset.MusicXMLDataSet(corpus.get_m21_corpus(COMPOSER_CORPUS),
-                                               model_metadata["training_sequence_min_length"],
+    sequence_dataset = dataset.MusicXMLDataSet(featurizer.load_json_corpus(JSON_CORPUS), 
+                                               model_metadata["training_sequence_min_length"], 
                                                model_metadata["training_sequence_max_length"])
-    # sequence_dataset = dataset.MusicXMLDataSet(featurizer.load_json_corpus(JSON_CORPUS), 
-    #                                            model_metadata["training_sequence_min_length"], 
-    #                                            model_metadata["training_sequence_max_length"])
     dataloader = DataLoader(sequence_dataset, model_metadata["batch_size"], True, 
                             collate_fn=dataset.MusicXMLDataSet.collate, num_workers=NUM_DATALOADER_WORKERS)
     print("Dataset loaded.\n")
