@@ -7,10 +7,9 @@ This repository is a generative AI system for producing the next note in a seque
 The default training device is CUDA, and MPS is the first fallback, with a CPU as the last-level default. When training, the estimated time remaining is output. This helps with gauging resource consumption.
 
 ## Training a model
-The simplest way to train a model is to use a music21 corpus. Follow these steps:
+The simplest way to train a model is to use a music21 corpus. Install the dependencies listed below, then follow these steps:
 1. Run the `save_data.py` program to generate a JSON corpus file that can be used in the training program.
-2. Run the `train.py` program.
-    1. Before running, make sure that file locations are correctly specified. You might not need to do anything, but the location of the corpus JSON is specified in the code, and if it's located somewhere else, or has a different name, you would need to change that.
+2. Run the `train.py` program. NOTE: Before running, make sure that file locations are correctly specified. You might not need to do anything, but the location of the corpus JSON is specified in the code, and if it's located somewhere else, or has a different name, you would need to change that.
     
 To train a model, you run the `music_train.py` program. You will need to specify the location to save the model metadata dictionary, as well as items in the dictionary (hyperparameters, etc.) While training, the model will routinely save its state to a file, specified in the model metadata dictionary. Once the model has saved its state for the first time, you can start making predictions as the model continues to train and periodically updates its state file.
 
