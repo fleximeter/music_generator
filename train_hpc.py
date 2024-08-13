@@ -1,12 +1,13 @@
 """
 File: train_hpc.py
 
+This file is modified to run on the University of Iowa Argon high-performance computing system.
+
 This module trains the music sequence generator. You can either train a model from
 scratch, or you can choose to continue training a model that was previously saved
 to disk. The training function will output status messages and save periodically.
 """
 
-import corpus
 import dataset
 import datetime
 import json
