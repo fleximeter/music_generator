@@ -20,11 +20,17 @@ class MusicXMLDataSet(Dataset):
     be provided to a DataLoader in shuffled fashion. Because the sequence lengths
     vary, it is necessary to provide a collate function to the DataLoader, and a
     collate function is provided as a static function in this class.
+
+    Before loading data into this dataset class, you need to use the music21
+    converter to load the score, then the load_data() function in the 
+    music21bindings module. This turns each staff into a list of note dictionaries.
+    This is necessary so the music21 module can be decoupled from the rest of the
+    program for running on a HPC system.
     """
     def __init__(self, score_list, min_sequence_length, max_sequence_length) -> None:
         """
         Makes a MusicXMLDataSet
-        :param score_list: A list of music21 scores to turn into a dataset
+        :param score_list: A list of music21 scores (in dictionary format) to turn into a dataset
         :param min_sequence_length: The minimum sequence length
         :param max_sequence_length: The maximum sequence length
         """
@@ -52,23 +58,21 @@ class MusicXMLDataSet(Dataset):
     def _load_data(self, score_list) -> Tuple[list, list]:
         """
         Parses each MusicXML file and generates sequences and labels from it
-        :param score_list: A list of MusicXML files to turn into a dataset
+        :param score_list: A list of MusicXML processed data to turn into a dataset
         """
         sequences = []
         labels = []
-        for score in score_list:
+        for staff in score_list:
             # Go through each staff in each score, and generate individual
             # sequences and labels for that staff
-            for i in featurizer.get_staff_indices(score):
-                data = featurizer.load_data(score[i])
-                data = featurizer.make_one_hot_features(data, False)
-                for j in range(self.min_sequence_length, self.max_sequence_length + 1):
-                    seq = featurizer.make_n_gram_sequences(data, j+1)
-                    lab = featurizer.make_labels(seq)
+            data = featurizer.make_one_hot_features(staff, False)
+            for j in range(self.min_sequence_length, self.max_sequence_length + 1):
+                seq = featurizer.make_n_gram_sequences(data, j+1)
+                lab = featurizer.make_labels(seq)
 
-                    # trim the last entry off the sequence, because it is the label
-                    sequences += [s[:-1, :] for s in seq]
-                    labels += lab
+                # trim the last entry off the sequence, because it is the label
+                sequences += [s[:-1, :] for s in seq]
+                labels += lab
 
         return sequences, labels
     

@@ -9,6 +9,7 @@ information about the model, such as the number of layers and the hidden size.
 import dataset
 import json
 import music21
+import music21bindings
 import featurizer
 import model_definition
 import torch
@@ -55,8 +56,8 @@ if __name__ == "__main__":
     # YOU WILL NEED TO EDIT THIS MANUALLY
     #######################################################################################
 
-    MUSICXML_PROMPT_FILE = "./data/prompt7.musicxml"  # Only the top staff will be considered
-    MODEL_METADATA_FILE = "./data/model13.json"
+    MUSICXML_PROMPT_FILE = "./data/prompt2.musicxml"  # Only the top staff will be considered
+    MODEL_METADATA_FILE = "./data/model22.json"
     NOTES_TO_PREDICT = 25
 
     #######################################################################################
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
     if not abort:
         # Predict only for the top staff
-        data = featurizer.load_data(score[featurizer.get_staff_indices(score)[0]])
+        data = music21bindings.load_data(score[music21bindings.get_staff_indices(score)[0]])
         tokenized_data = featurizer.make_one_hot_features(data)
         
         # Load the model state dictionary from file
@@ -99,7 +100,7 @@ if __name__ == "__main__":
             next_note, hidden = predict_next_note(model, featurizer.make_one_hot_features([next_note]), hidden, model_metadata["training_sequence_max_length"])
 
         # Turn the data into a score
-        score = featurizer.unload_data(data)
+        score = music21bindings.unload_data(data)
         score.show()
         # destination_split = os.path.split(MUSICXML_PROMPT_FILE)
         # destination_file = "predicted_" + destination_split[-1]
