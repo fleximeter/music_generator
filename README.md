@@ -6,6 +6,14 @@ This repository is a generative AI system for producing the next note in a seque
 ## Resource needs
 The default training device is CUDA, and MPS is the first fallback, with a CPU as the last-level default. When training, the estimated time remaining is output. This helps with gauging resource consumption.
 
+## Setup
+You will need to install the following packages to use this repository:
+`music21`, `numpy`, `torch`, and `regex`
+
+Visit https://pytorch.org/get-started/locally/ for PyTorch installation instructions (this is a good idea if you want to use CUDA).
+
+After installing music21, you need to configure it to open MusicXML files with a score viewer like Sibelius or MuseScore. You can do this by running the command `python3 -m music21.configure` (see https://www.music21.org/music21docs/installing/installWindows.html for more details).
+
 ## Training a model
 The simplest way to train a model is to use a music21 corpus. Install the dependencies listed below, then follow these steps:
 1. Run the `save_data.py` program to generate a JSON corpus file that can be used in the training program.
@@ -16,11 +24,7 @@ To train a model, you run the `music_train.py` program. You will need to specify
 ## Making predictions
 To make predictions, you run the `music_predict.py` program. You will need to specifiy the location of the model metadata file, provide a MusicXML prompt file, and specify the number of notes to generate. The predictor will automatically open the generated music in your default `music21` score viewer.
 
-## Dependencies
-You will need to install the following packages to use this repository:
-`music21`, `numpy`, `pytorch`, `pytorch-cuda` (if you are running on CUDA), `regex`, `sendgrid` (for sending training status updates)
-
-To install on a Python virtualenv, run `pip install music21 numpy pytorch pytorch-cuda regex sendgrid`
+Prompt files should only include single-voice melodic prompts, since this model is only designed to predict the next note in a melody.
 
 ## File descriptions
 `corpus.py` - Contains functionality for loading all XML files in a given directory and parsing them with `music21`, as well as loading files from the `music21` corpus by composer.

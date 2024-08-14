@@ -152,7 +152,7 @@ if __name__ == "__main__":
         "path": FILE_NAME,
         "training_sequence_min_length": 2,
         "training_sequence_max_length": 20,
-        "num_layers": 8,
+        "num_layers": 4,
         "hidden_size": 1024,
         "batch_size": 1000,
         "state_dict": f"data/music_sequencer{MODEL_SUFFIX}.pth",
