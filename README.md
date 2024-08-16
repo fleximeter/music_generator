@@ -15,11 +15,11 @@ Visit https://pytorch.org/get-started/locally/ for PyTorch installation instruct
 After installing music21, you need to configure it to open MusicXML files with a score viewer like Sibelius or MuseScore. You can do this by running the command `python3 -m music21.configure` (see https://www.music21.org/music21docs/installing/installWindows.html for more details).
 
 ## Training a model
-The simplest way to train a model is to use a music21 corpus. Install the dependencies listed below, then follow these steps:
+The simplest way to train a model is to use a music21 corpus. Install the dependencies listed above, then follow these steps:
 1. Run the `save_data.py` program to generate a JSON corpus file that can be used in the training program.
 2. Run the `train.py` program. NOTE: Before running, make sure that file locations are correctly specified. You might not need to do anything, but the location of the corpus JSON is specified in the code, and if it's located somewhere else, or has a different name, you would need to change that.
-    
-To train a model, you run the `music_train.py` program. You will need to specify the location to save the model metadata dictionary, as well as items in the dictionary (hyperparameters, etc.) While training, the model will routinely save its state to a file, specified in the model metadata dictionary. Once the model has saved its state for the first time, you can start making predictions as the model continues to train and periodically updates its state file.
+
+While training, the model will routinely save its state to a file, specified in the model metadata dictionary. Once the model has saved its state for the first time, you can start making predictions as the model continues to train and periodically updates its state file.
 
 ## Making predictions
 To make predictions, you run the `music_predict.py` program. You will need to specifiy the location of the model metadata file, provide a MusicXML prompt file, and specify the number of notes to generate. The predictor will automatically open the generated music in your default `music21` score viewer.
@@ -42,5 +42,7 @@ Prompt files should only include single-voice melodic prompts, since this model 
 `tests.py` - Contains testing functionality
 
 `train.py` - Contains functionality for training models.
+
+`train_hpc.py` - A modified version of `train.py` for running on the University of Iowa Argon high-performance computing system.
 
 `xml_gen.py` - Contains an interface for working with `music21` and easily generating `music21.stream.Score` objects.
